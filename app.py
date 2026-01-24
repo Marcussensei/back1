@@ -26,9 +26,9 @@ app.config["JWT_SECRET_KEY"] = "essivi-secret-key"
 app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = ""  # Accept token without "Bearer " prefix
-app.config["JWT_COOKIE_SECURE"] = False  # À mettre à True en production avec HTTPS
+app.config["JWT_COOKIE_SECURE"] = True  # À mettre à True en production avec HTTPS
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
-app.config["JWT_COOKIE_SAMESITE"] = "Lax"
+app.config["JWT_COOKIE_SAMESITE"] = "None"
 
 # =========================
 # EXTENSIONS
@@ -39,7 +39,7 @@ CORS(
     allow_headers=["Content-Type", "Authorization", "Accept"],
     expose_headers=["Content-Type"],
     # http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000", "http://127.0.0.1:3000
-    origins=["*","http://localhost:26556"],  # Specific origins for development
+    origins=["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000", "http://127.0.0.1:3000"],  # Specific origins for development
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     max_age=3600
 )
