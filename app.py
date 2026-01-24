@@ -43,8 +43,8 @@ allowed_origins = [
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "http://localhost:59583",  # Flutter web dev port
-    "http://127.0.0.1:59583",
-    
+    "*",
+
 ]
 # Add production frontend URL if set in environment
 if os.getenv("FRONTEND_URL"):
