@@ -43,8 +43,7 @@ allowed_origins = [
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "http://localhost:59583",  # Flutter web dev port
-    "*",
-
+    "http://localhost:61411",  # Current Flutter dev port
 ]
 # Add production frontend URL if set in environment
 if os.getenv("FRONTEND_URL"):
@@ -60,7 +59,7 @@ CORS(
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "Accept"],
     expose_headers=["Content-Type"],
-    origins="*",  # Temporarily allow all origins for testing
+    origins=allowed_origins,
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     max_age=3600
 )
