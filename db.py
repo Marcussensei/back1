@@ -11,9 +11,18 @@ def get_connection():
     Créer une connexion à la base de données PostgreSQL
     Utilise les variables d'environnement pour la configuration
     Supporte:
-      - Production: Supabase PostgreSQL
-      - Développement: Local PostgreSQL
+      - Production: DATABASE_URL (Supabase) ou variables individuelles
+      - Développement: DATABASE_URL ou variables locales
     """
+    # Si DATABASE_URL est disponible, l'utiliser (Supabase/production)
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        return psycopg2.connect(
+            database_url,
+            cursor_factory=RealDictCursor
+        )
+    
+    # Sinon, utiliser les variables individuelles (développement local)
     db_host = os.getenv('DB_HOST', 'localhost')
     db_port = os.getenv('DB_PORT', '5432')
     db_name = os.getenv('DB_NAME', 'essivivi_db')

@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_cors import CORS
 from flask_restx import Api
@@ -22,7 +23,7 @@ app = Flask(__name__)
 # =========================
 # CONFIG JWT
 # =========================
-app.config["JWT_SECRET_KEY"] = "essivi-secret-key"
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "essivi-secret-key-dev")
 app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = ""  # Accept token without "Bearer " prefix
@@ -33,13 +34,23 @@ app.config["JWT_COOKIE_SAMESITE"] = "None"
 # =========================
 # EXTENSIONS
 # =========================
+# Configure CORS for both local and production
+allowed_origins = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+# Add production frontend URL if set in environment
+if os.getenv("FRONTEND_URL"):
+    allowed_origins.append(os.getenv("FRONTEND_URL"))
+
 CORS(
     app,
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "Accept"],
     expose_headers=["Content-Type"],
-    # http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000", "http://127.0.0.1:3000
-    origins=["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000", "http://127.0.0.1:3000"],  # Specific origins for development
+    origins=allowed_origins,
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     max_age=3600
 )
