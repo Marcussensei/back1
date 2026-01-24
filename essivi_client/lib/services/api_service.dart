@@ -5,9 +5,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Service pour les appels API client
 class ClientApiService {
-  // Utiliser 127.0.0.1 pour le web, localhost pour native
-  static String get baseUrl =>
-      kIsWeb ? 'http://127.0.0.1:5000' : 'http://localhost:5000';
+  // Utiliser l'URL de production déployée
+  static String get baseUrl => 'https://essivivi-project.onrender.com';
   static String? _authToken;
 
   /// Définir le token
