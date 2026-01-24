@@ -27,7 +27,7 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "essivi-secret-key-de
 app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]  # Accept both headers and cookies
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = ""  # Accept token without "Bearer " prefix
-app.config["JWT_COOKIE_SECURE"] = False  # False en dev (HTTP), True en prod (HTTPS)
+app.config["JWT_COOKIE_SECURE"] = os.getenv("RENDER") is not None  # True on Render (HTTPS), False locally
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 app.config["JWT_COOKIE_SAMESITE"] = "None"  # None pour cross-domain
 

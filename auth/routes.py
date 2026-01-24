@@ -263,11 +263,13 @@ class Login(Resource):
         # Définir le cookie HTTP-only (sécurisé)
         # Pour cross-domain (localhost:8080 → render.com), besoin de samesite='None'
         # secure=False en dev, True en production avec HTTPS
+        import os
+        is_production = os.getenv("RENDER") is not None
         response.set_cookie(
             'access_token_cookie',
             token,
             httponly=True,  # Inaccessible par JavaScript
-            secure=False,   # False en dev (HTTP), True en prod (HTTPS)
+            secure=is_production,   # False en dev (HTTP), True en prod (HTTPS)
             samesite='None',  # None pour cross-domain, Lax/Strict sinon
             max_age=3600,
             path='/'
@@ -283,7 +285,7 @@ class Me(Resource):
     @auth_ns.doc(security="BearerAuth")
     @jwt_required()
     def get(self):
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         claims = get_jwt()
         user_role = claims.get("role")
 
