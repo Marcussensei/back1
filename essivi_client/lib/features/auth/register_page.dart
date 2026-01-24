@@ -8,7 +8,8 @@ class RegisterPage extends StatefulWidget {
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
+class _RegisterPageState extends State<RegisterPage>
+    with SingleTickerProviderStateMixin {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
@@ -21,11 +22,27 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    _animationController.forward();
+  }
 
   @override
   void dispose() {
+    _animationController.dispose();
     _nameController.dispose();
     _businessNameController.dispose();
     _ownerController.dispose();
@@ -53,7 +70,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return 'Veuillez entrer votre mot de passe';
     }
     if (value.length < 6) {
-      return 'Le mot de passe doit contenir au moins 6 caractères';
+      return 'Au moins 6 caractères';
     }
     return null;
   }
@@ -92,25 +109,45 @@ class _RegisterPageState extends State<RegisterPage> {
           adresse: _addressController.text.trim().isNotEmpty
               ? _addressController.text.trim()
               : null,
-          latitude: null, // Pour l'instant, pas de géolocalisation
+          latitude: null,
           longitude: null,
         );
 
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Inscription réussie ! Veuillez vous connecter.'),
-              backgroundColor: Colors.green,
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text('Inscription réussie ! Connectez-vous maintenant.'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green.shade600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.all(16),
             ),
           );
-          Navigator.pop(context); // Return to login
+          Navigator.pop(context);
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Erreur lors de l\'inscription. Email déjà utilisé ?',
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text('Erreur lors de l\'inscription. Email déjà utilisé ?'),
+                  ),
+                ],
               ),
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.all(16),
             ),
           );
         }
@@ -133,6 +170,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isLargeScreen = MediaQuery.of(context).size.width > 800;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -140,17 +179,17 @@ class _RegisterPageState extends State<RegisterPage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF0EA5E9), // primary blue
-              Color(0xFF0284C7), // darker blue
-              Color(0xFF0369A1), // accent blue
+              Color(0xFF0EA5E9),
+              Color(0xFF0284C7),
+              Color(0xFF0369A1),
             ],
           ),
         ),
         child: SafeArea(
           child: Row(
             children: [
-              // Left Panel - Branding (visible on larger screens)
-              if (MediaQuery.of(context).size.width > 800)
+              // Left Panel - Branding
+              if (isLargeScreen)
                 Expanded(
                   flex: 2,
                   child: Container(
@@ -163,19 +202,46 @@ class _RegisterPageState extends State<RegisterPage> {
                         Row(
                           children: [
                             Container(
-                              width: 60,
-                              height: 60,
+                              width: 80,
+                              height: 80,
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Icon(
-                                Icons.person_add,
                                 color: Colors.white,
-                                size: 32,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      decoration: const BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Color(0xFF0EA5E9),
+                                            Color(0xFF0284C7),
+                                          ],
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.person_add_rounded,
+                                        color: Colors.white,
+                                        size: 36,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 20),
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -183,30 +249,30 @@ class _RegisterPageState extends State<RegisterPage> {
                                   'Rejoignez',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 28,
+                                    fontSize: 32,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.2,
                                   ),
                                 ),
                                 Text(
-                                  'ESSIVI',
+                                  'ESSIVIVI',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 24,
+                                    fontSize: 26,
                                     fontWeight: FontWeight.w300,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 48),
-                        // Main content
+                        const SizedBox(height: 60),
                         const Text(
                           'Créez votre compte\net commencez à commander',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 32,
+                            fontSize: 38,
                             fontWeight: FontWeight.bold,
                             height: 1.2,
                           ),
@@ -215,763 +281,280 @@ class _RegisterPageState extends State<RegisterPage> {
                         Text(
                           'Inscrivez-vous pour accéder à notre plateforme\nde commande d\'eau en ligne.',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withOpacity(0.9),
                             fontSize: 18,
-                            height: 1.5,
+                            height: 1.6,
                           ),
                         ),
                         const SizedBox(height: 48),
-                        // Benefits
-                        _buildBenefit('Commandes faciles', Icons.shopping_cart),
-                        const SizedBox(height: 16),
-                        _buildBenefit('Livraison rapide', Icons.local_shipping),
-                        const SizedBox(height: 16),
-                        _buildBenefit('Support 24/7', Icons.support_agent),
+                        _buildBenefit('Commandes faciles et rapides', Icons.touch_app_rounded),
+                        const SizedBox(height: 20),
+                        _buildBenefit('Livraison express garantie', Icons.local_shipping_rounded),
+                        const SizedBox(height: 20),
+                        _buildBenefit('Support client 24/7', Icons.support_agent_rounded),
                       ],
                     ),
                   ),
                 ),
-              // Right Panel - Registration Form
+              // Right Panel - Form
               Expanded(
-                flex: MediaQuery.of(context).size.width > 800 ? 1 : 1,
+                flex: isLargeScreen ? 1 : 1,
                 child: Container(
-                  margin: MediaQuery.of(context).size.width > 800
+                  margin: isLargeScreen
                       ? const EdgeInsets.all(48.0)
                       : const EdgeInsets.all(24.0),
-                  padding: const EdgeInsets.all(32.0),
+                  padding: const EdgeInsets.all(36.0),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 30,
+                        offset: const Offset(0, 15),
                       ),
                     ],
                   ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Mobile logo (visible only on small screens)
-                        if (MediaQuery.of(context).size.width <= 800)
-                          Center(
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF0EA5E9),
-                                        Color(0xFF0284C7),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Mobile logo
+                          if (!isLargeScreen)
+                            Center(
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 90,
+                                    height: 90,
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF0EA5E9),
+                                          Color(0xFF0284C7),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(24),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF0EA5E9).withOpacity(0.3),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 8),
+                                        ),
                                       ],
                                     ),
-                                    borderRadius: BorderRadius.circular(20),
+                                    child: const Icon(
+                                      Icons.person_add_rounded,
+                                      color: Colors.white,
+                                      size: 44,
+                                    ),
                                   ),
-                                  child: const Icon(
-                                    Icons.person_add,
-                                    color: Colors.white,
-                                    size: 40,
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    'Inscription',
+                                    style: TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0EA5E9),
+                                    ),
                                   ),
+                                ],
+                              ),
+                            ),
+                          if (!isLargeScreen) const SizedBox(height: 32),
+
+                          // Title
+                          Text(
+                            'Créer un compte',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[900],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Rejoignez la communauté ESSIVIVI',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Form
+                          Form(
+                            key: _formKey,
+                            child: Column(
+                              children: [
+                                _buildTextField(
+                                  controller: _nameController,
+                                  label: 'Nom du point de vente',
+                                  hint: 'Boutique Dupont',
+                                  icon: Icons.store_rounded,
+                                  validator: (v) => _validateRequired(v, 'le nom du point de vente'),
                                 ),
                                 const SizedBox(height: 16),
-                                const Text(
-                                  'Inscription',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0EA5E9),
+                                _buildTextField(
+                                  controller: _businessNameController,
+                                  label: 'Nom commercial (optionnel)',
+                                  hint: 'Nom affiché',
+                                  icon: Icons.business_rounded,
+                                  required: false,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _ownerController,
+                                  label: 'Nom du responsable',
+                                  hint: 'Marie Dupont',
+                                  icon: Icons.person_rounded,
+                                  validator: (v) => _validateRequired(v, 'le nom du responsable'),
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _phoneController,
+                                  label: 'Téléphone',
+                                  hint: '+225 XX XX XX XX',
+                                  icon: Icons.phone_rounded,
+                                  keyboardType: TextInputType.phone,
+                                  validator: (v) => _validateRequired(v, 'le numéro de téléphone'),
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _emailController,
+                                  label: 'Email',
+                                  hint: 'votre.email@exemple.com',
+                                  icon: Icons.email_rounded,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: _validateEmail,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _addressController,
+                                  label: 'Adresse complète',
+                                  hint: 'Adresse du point de vente',
+                                  icon: Icons.location_on_rounded,
+                                  maxLines: 2,
+                                  validator: (v) => _validateRequired(v, 'l\'adresse'),
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _passwordController,
+                                  label: 'Mot de passe',
+                                  hint: 'Au moins 6 caractères',
+                                  icon: Icons.lock_rounded,
+                                  obscureText: _obscurePassword,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                    ),
+                                    onPressed: () {
+                                      setState(() => _obscurePassword = !_obscurePassword);
+                                    },
+                                  ),
+                                  validator: _validatePassword,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _confirmPasswordController,
+                                  label: 'Confirmer le mot de passe',
+                                  hint: 'Répétez le mot de passe',
+                                  icon: Icons.lock_outline_rounded,
+                                  obscureText: _obscureConfirmPassword,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscureConfirmPassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                    ),
+                                    onPressed: () {
+                                      setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                                    },
+                                  ),
+                                  validator: _validateConfirmPassword,
+                                ),
+                                const SizedBox(height: 32),
+
+                                // Register Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 60,
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading ? null : _handleRegister,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0EA5E9),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: _isLoading
+                                        ? const SizedBox(
+                                            height: 26,
+                                            width: 26,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          )
+                                        : const Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                'Créer mon compte',
+                                                style: TextStyle(
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                              SizedBox(width: 12),
+                                              Icon(Icons.arrow_forward_rounded, size: 20),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Back to login
+                                Center(
+                                  child: TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color(0xFF0EA5E9),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.arrow_back_rounded, size: 18),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Retour à la connexion',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        if (MediaQuery.of(context).size.width <= 800)
-                          const SizedBox(height: 32),
-
-                        // Title
-                        Text(
-                          'Créer un compte',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Rejoignez la communauté ESSIVI',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Form
-                        Form(
-                          key: _formKey,
-                          child: Column(
-                            children: [
-                              // Row for name and business name on larger screens
-                              if (MediaQuery.of(context).size.width > 600)
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _nameController,
-                                        decoration: InputDecoration(
-                                          labelText: 'Nom du point de vente',
-                                          hintText: 'Boutique Dupont',
-                                          prefixIcon: const Icon(
-                                            Icons.store,
-                                            color: Color(0xFF0EA5E9),
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: BorderSide(
-                                              color: Colors.grey[300]!,
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: const BorderSide(
-                                              color: Color(0xFF0EA5E9),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.grey[50],
-                                        ),
-                                        validator: (value) => _validateRequired(
-                                          value,
-                                          'le nom du point de vente',
-                                        ),
-                                        enabled: !_isLoading,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _businessNameController,
-                                        decoration: InputDecoration(
-                                          labelText: 'Nom commercial',
-                                          hintText: 'Optionnel',
-                                          prefixIcon: const Icon(
-                                            Icons.business,
-                                            color: Color(0xFF0EA5E9),
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: BorderSide(
-                                              color: Colors.grey[300]!,
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: const BorderSide(
-                                              color: Color(0xFF0EA5E9),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.grey[50],
-                                        ),
-                                        enabled: !_isLoading,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else ...[
-                                TextFormField(
-                                  controller: _nameController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Nom du point de vente',
-                                    hintText: 'Boutique Dupont',
-                                    prefixIcon: const Icon(
-                                      Icons.store,
-                                      color: Color(0xFF0EA5E9),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey[300]!,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF0EA5E9),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  validator: (value) => _validateRequired(
-                                    value,
-                                    'le nom du point de vente',
-                                  ),
-                                  enabled: !_isLoading,
-                                ),
-                                const SizedBox(height: 16),
-                                TextFormField(
-                                  controller: _businessNameController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Nom commercial',
-                                    hintText: 'Optionnel',
-                                    prefixIcon: const Icon(
-                                      Icons.business,
-                                      color: Color(0xFF0EA5E9),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey[300]!,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF0EA5E9),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  enabled: !_isLoading,
-                                ),
-                              ],
-                              const SizedBox(height: 16),
-
-                              // Row for owner and phone on larger screens
-                              if (MediaQuery.of(context).size.width > 600)
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _ownerController,
-                                        decoration: InputDecoration(
-                                          labelText: 'Responsable',
-                                          hintText: 'Marie Dupont',
-                                          prefixIcon: const Icon(
-                                            Icons.person,
-                                            color: Color(0xFF0EA5E9),
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: BorderSide(
-                                              color: Colors.grey[300]!,
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: const BorderSide(
-                                              color: Color(0xFF0EA5E9),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.grey[50],
-                                        ),
-                                        validator: (value) => _validateRequired(
-                                          value,
-                                          'le nom du responsable',
-                                        ),
-                                        enabled: !_isLoading,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _phoneController,
-                                        keyboardType: TextInputType.phone,
-                                        decoration: InputDecoration(
-                                          labelText: 'Téléphone',
-                                          hintText: '+225 XX XX XX XX',
-                                          prefixIcon: const Icon(
-                                            Icons.phone,
-                                            color: Color(0xFF0EA5E9),
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: BorderSide(
-                                              color: Colors.grey[300]!,
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: const BorderSide(
-                                              color: Color(0xFF0EA5E9),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.grey[50],
-                                        ),
-                                        validator: (value) => _validateRequired(
-                                          value,
-                                          'le numéro de téléphone',
-                                        ),
-                                        enabled: !_isLoading,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else ...[
-                                TextFormField(
-                                  controller: _ownerController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Responsable',
-                                    hintText: 'Marie Dupont',
-                                    prefixIcon: const Icon(
-                                      Icons.person,
-                                      color: Color(0xFF0EA5E9),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey[300]!,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF0EA5E9),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  validator: (value) => _validateRequired(
-                                    value,
-                                    'le nom du responsable',
-                                  ),
-                                  enabled: !_isLoading,
-                                ),
-                                const SizedBox(height: 16),
-                                TextFormField(
-                                  controller: _phoneController,
-                                  keyboardType: TextInputType.phone,
-                                  decoration: InputDecoration(
-                                    labelText: 'Téléphone',
-                                    hintText: '+225 XX XX XX XX',
-                                    prefixIcon: const Icon(
-                                      Icons.phone,
-                                      color: Color(0xFF0EA5E9),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey[300]!,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF0EA5E9),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  validator: (value) => _validateRequired(
-                                    value,
-                                    'le numéro de téléphone',
-                                  ),
-                                  enabled: !_isLoading,
-                                ),
-                              ],
-                              const SizedBox(height: 16),
-
-                              TextFormField(
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                decoration: InputDecoration(
-                                  labelText: 'Email',
-                                  hintText: 'votre.email@exemple.com',
-                                  prefixIcon: const Icon(
-                                    Icons.email,
-                                    color: Color(0xFF0EA5E9),
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey[300]!,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF0EA5E9),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey[50],
-                                ),
-                                validator: _validateEmail,
-                                enabled: !_isLoading,
-                              ),
-                              const SizedBox(height: 16),
-
-                              TextFormField(
-                                controller: _addressController,
-                                maxLines: 2,
-                                decoration: InputDecoration(
-                                  labelText: 'Adresse',
-                                  hintText:
-                                      'Adresse complète du point de vente',
-                                  prefixIcon: const Icon(
-                                    Icons.location_on,
-                                    color: Color(0xFF0EA5E9),
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey[300]!,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF0EA5E9),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey[50],
-                                ),
-                                validator: (value) =>
-                                    _validateRequired(value, 'l\'adresse'),
-                                enabled: !_isLoading,
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Row for password fields on larger screens
-                              if (MediaQuery.of(context).size.width > 600)
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _passwordController,
-                                        obscureText: _obscurePassword,
-                                        decoration: InputDecoration(
-                                          labelText: 'Mot de passe',
-                                          hintText: 'Min. 6 caractères',
-                                          prefixIcon: const Icon(
-                                            Icons.lock,
-                                            color: Color(0xFF0EA5E9),
-                                          ),
-                                          suffixIcon: IconButton(
-                                            icon: Icon(
-                                              _obscurePassword
-                                                  ? Icons.visibility
-                                                  : Icons.visibility_off,
-                                              color: Colors.grey[600],
-                                            ),
-                                            onPressed: () {
-                                              setState(
-                                                () => _obscurePassword =
-                                                    !_obscurePassword,
-                                              );
-                                            },
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: BorderSide(
-                                              color: Colors.grey[300]!,
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: const BorderSide(
-                                              color: Color(0xFF0EA5E9),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.grey[50],
-                                        ),
-                                        validator: _validatePassword,
-                                        enabled: !_isLoading,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _confirmPasswordController,
-                                        obscureText: _obscureConfirmPassword,
-                                        decoration: InputDecoration(
-                                          labelText: 'Confirmer',
-                                          hintText: 'Répétez le mot de passe',
-                                          prefixIcon: const Icon(
-                                            Icons.lock_outline,
-                                            color: Color(0xFF0EA5E9),
-                                          ),
-                                          suffixIcon: IconButton(
-                                            icon: Icon(
-                                              _obscureConfirmPassword
-                                                  ? Icons.visibility
-                                                  : Icons.visibility_off,
-                                              color: Colors.grey[600],
-                                            ),
-                                            onPressed: () {
-                                              setState(
-                                                () => _obscureConfirmPassword =
-                                                    !_obscureConfirmPassword,
-                                              );
-                                            },
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: BorderSide(
-                                              color: Colors.grey[300]!,
-                                            ),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            borderSide: const BorderSide(
-                                              color: Color(0xFF0EA5E9),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.grey[50],
-                                        ),
-                                        validator: _validateConfirmPassword,
-                                        enabled: !_isLoading,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              else ...[
-                                TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: _obscurePassword,
-                                  decoration: InputDecoration(
-                                    labelText: 'Mot de passe',
-                                    hintText: 'Min. 6 caractères',
-                                    prefixIcon: const Icon(
-                                      Icons.lock,
-                                      color: Color(0xFF0EA5E9),
-                                    ),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscurePassword
-                                            ? Icons.visibility
-                                            : Icons.visibility_off,
-                                        color: Colors.grey[600],
-                                      ),
-                                      onPressed: () {
-                                        setState(
-                                          () => _obscurePassword =
-                                              !_obscurePassword,
-                                        );
-                                      },
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey[300]!,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF0EA5E9),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  validator: _validatePassword,
-                                  enabled: !_isLoading,
-                                ),
-                                const SizedBox(height: 16),
-                                TextFormField(
-                                  controller: _confirmPasswordController,
-                                  obscureText: _obscureConfirmPassword,
-                                  decoration: InputDecoration(
-                                    labelText: 'Confirmer le mot de passe',
-                                    hintText: 'Répétez le mot de passe',
-                                    prefixIcon: const Icon(
-                                      Icons.lock_outline,
-                                      color: Color(0xFF0EA5E9),
-                                    ),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscureConfirmPassword
-                                            ? Icons.visibility
-                                            : Icons.visibility_off,
-                                        color: Colors.grey[600],
-                                      ),
-                                      onPressed: () {
-                                        setState(
-                                          () => _obscureConfirmPassword =
-                                              !_obscureConfirmPassword,
-                                        );
-                                      },
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey[300]!,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF0EA5E9),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                  ),
-                                  validator: _validateConfirmPassword,
-                                  enabled: !_isLoading,
-                                ),
-                              ],
-                              const SizedBox(height: 32),
-
-                              // Register Button
-                              SizedBox(
-                                width: double.infinity,
-                                height: 56,
-                                child: ElevatedButton(
-                                  onPressed: _isLoading
-                                      ? null
-                                      : _handleRegister,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0EA5E9),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    elevation: 2,
-                                    shadowColor: const Color(
-                                      0xFF0EA5E9,
-                                    ).withOpacity(0.3),
-                                  ),
-                                  child: _isLoading
-                                      ? const SizedBox(
-                                          height: 24,
-                                          width: 24,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
-                                                ),
-                                          ),
-                                        )
-                                      : const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              'S\'inscrire',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            SizedBox(width: 8),
-                                            Icon(Icons.person_add, size: 18),
-                                          ],
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -983,28 +566,88 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildBenefit(String text, IconData icon) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+    bool required = true,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      style: const TextStyle(fontSize: 15),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Container(
+          margin: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(10),
+            color: const Color(0xFF0EA5E9).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
+          child: Icon(icon, color: const Color(0xFF0EA5E9), size: 20),
         ),
-        const SizedBox(width: 16),
-        Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+        suffixIcon: suffixIcon,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFF0EA5E9), width: 2.5),
+        ),
+        filled: true,
+        fillColor: Colors.grey[50],
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      ),
+      validator: validator,
+      enabled: !_isLoading,
+    );
+  }
+
+  Widget _buildBenefit(String text, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
-        ),
-      ],
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

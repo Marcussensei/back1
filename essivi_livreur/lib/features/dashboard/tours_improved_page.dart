@@ -31,7 +31,24 @@ class _ToursPageState extends State<ToursPage> {
     if (_selectedStatus == 'all') {
       return tours;
     }
-    return tours.where((tour) => tour['status'] == _selectedStatus).toList();
+
+    // Map frontend filter values to backend status values
+    String backendStatus;
+    switch (_selectedStatus) {
+      case 'en_cours':
+        backendStatus = 'in_progress';
+        break;
+      case 'completee':
+        backendStatus = 'completed';
+        break;
+      case 'annulee':
+        backendStatus = 'pending';
+        break;
+      default:
+        return tours;
+    }
+
+    return tours.where((tour) => tour['status'] == backendStatus).toList();
   }
 
   @override
@@ -175,13 +192,13 @@ class _ToursPageState extends State<ToursPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'tours_fab',
-        onPressed: _startNewTour,
-        label: const Text('Nouvelle tournée'),
-        icon: const Icon(Icons.add),
-        backgroundColor: const Color(0xFF00458A),
-      ),
+      // floatingActionButton: FloatingActionButton.extended(
+      //   heroTag: 'tours_fab',
+      //   onPressed: _startNewTour,
+      //   label: const Text('Nouvelle tournée'),
+      //   icon: const Icon(Icons.add),
+      //   backgroundColor: const Color(0xFF00458A),
+      // ),
     );
   }
 

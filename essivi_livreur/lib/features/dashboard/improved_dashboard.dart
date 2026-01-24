@@ -96,16 +96,17 @@ class _ImprovedDeliveryDashboardState extends State<ImprovedDeliveryDashboard> {
       final filtered = livraisons
           .where((livraison) => livraison['statut'] == 'en_cours')
           .toList();
-      print('[Dashboard] Filtered en_cours livraisons: ${filtered.length} items');
-      final deliveries = filtered
-          .map((livraison) {
-            print('[Dashboard] Processing livraison: ${livraison['id']} - ${livraison['nom_point_vente']}');
-            return Delivery.fromJson(livraison);
-          })
-          .toList();
+      print(
+          '[Dashboard] Filtered en_cours livraisons: ${filtered.length} items');
+      final deliveries = filtered.map((livraison) {
+        print(
+            '[Dashboard] Processing livraison: ${livraison['id']} - ${livraison['nom_point_vente']}');
+        return Delivery.fromJson(livraison);
+      }).toList();
       print('[Dashboard] Created deliveries: ${deliveries.length} items');
       if (deliveries.isNotEmpty) {
-        print('[Dashboard] First delivery: ${deliveries[0].clientName}, ${deliveries[0].clientAddress}, ${deliveries[0].quantity} sachets');
+        print(
+            '[Dashboard] First delivery: ${deliveries[0].clientName}, ${deliveries[0].clientAddress}, ${deliveries[0].quantity} sachets');
       }
       return deliveries;
     }).catchError((error) {
@@ -119,20 +120,22 @@ class _ImprovedDeliveryDashboardState extends State<ImprovedDeliveryDashboard> {
       if (agentId == 0) return Future.value([]);
       return ApiService.getLivraisonsByAgent(agentId);
     }).then((livraisons) {
-      print('[Dashboard] Raw livraisons for history: ${livraisons.length} items');
+      print(
+          '[Dashboard] Raw livraisons for history: ${livraisons.length} items');
       final filtered = livraisons
           .where((livraison) => livraison['statut'] == 'livree')
           .toList();
       print('[Dashboard] Filtered livree livraisons: ${filtered.length} items');
-      final deliveries = filtered
-          .map((livraison) {
-            print('[Dashboard] Processing completed livraison: ${livraison['id']} - ${livraison['nom_point_vente']}');
-            return Delivery.fromJson(livraison);
-          })
-          .toList();
-      print('[Dashboard] Created completed deliveries: ${deliveries.length} items');
+      final deliveries = filtered.map((livraison) {
+        print(
+            '[Dashboard] Processing completed livraison: ${livraison['id']} - ${livraison['nom_point_vente']}');
+        return Delivery.fromJson(livraison);
+      }).toList();
+      print(
+          '[Dashboard] Created completed deliveries: ${deliveries.length} items');
       if (deliveries.isNotEmpty) {
-        print('[Dashboard] First completed delivery: ${deliveries[0].clientName}, ${deliveries[0].clientAddress}, ${deliveries[0].quantity} sachets');
+        print(
+            '[Dashboard] First completed delivery: ${deliveries[0].clientName}, ${deliveries[0].clientAddress}, ${deliveries[0].quantity} sachets');
       }
       return deliveries;
     }).catchError((error) {
@@ -329,42 +332,51 @@ class _ImprovedDeliveryDashboardState extends State<ImprovedDeliveryDashboard> {
                 final stats = snapshot.data!;
                 return Column(
                   children: [
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      children: [
-                        _buildStatCard(
-                          title: 'Livraisons',
-                          value: '${stats.totalDeliveries}',
-                          subtitle: '${stats.completedDeliveries} complétées',
-                          icon: Icons.local_shipping,
-                          color: Colors.blue,
-                        ),
-                        _buildStatCard(
-                          title: 'Montant Total',
-                          value: '${stats.totalAmount.toStringAsFixed(0)} CFA',
-                          subtitle: 'Jour',
-                          icon: Icons.attach_money,
-                          color: Colors.green,
-                        ),
-                        _buildStatCard(
-                          title: 'Quantité',
-                          value: stats.totalQuantity.toStringAsFixed(0),
-                          subtitle: 'sachet/colis',
-                          icon: Icons.inventory_2,
-                          color: Colors.orange,
-                        ),
-                        _buildStatCard(
-                          title: 'Distance',
-                          value: stats.averageDistance,
-                          subtitle: 'moyenne',
-                          icon: Icons.directions,
-                          color: Colors.purple,
-                        ),
-                      ],
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final crossAxisCount =
+                            constraints.maxWidth > 600 ? 4 : 2;
+                        return GridView.count(
+                          crossAxisCount: crossAxisCount,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: crossAxisCount == 4 ? 1.2 : 0.9,
+                          children: [
+                            _buildStatCard(
+                              title: 'Livraisons',
+                              value: '${stats.totalDeliveries}',
+                              subtitle:
+                                  '${stats.completedDeliveries} complétées',
+                              icon: Icons.local_shipping,
+                              color: Colors.blue,
+                            ),
+                            _buildStatCard(
+                              title: 'Montant Total',
+                              value:
+                                  '${stats.totalAmount.toStringAsFixed(0)} CFA',
+                              subtitle: 'Jour',
+                              icon: Icons.attach_money,
+                              color: Colors.green,
+                            ),
+                            _buildStatCard(
+                              title: 'Quantité',
+                              value: stats.totalQuantity.toStringAsFixed(0),
+                              subtitle: 'sachet/colis',
+                              icon: Icons.inventory_2,
+                              color: Colors.orange,
+                            ),
+                            _buildStatCard(
+                              title: 'Distance',
+                              value: stats.averageDistance,
+                              subtitle: 'moyenne',
+                              icon: Icons.directions,
+                              color: Colors.purple,
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
                     _buildPerformanceChart(stats),
@@ -483,7 +495,8 @@ class _ImprovedDeliveryDashboardState extends State<ImprovedDeliveryDashboard> {
 
         final agentName = snapshot.data?['nom'] ?? 'Agent de Livraison';
         final agentEmail = snapshot.data?['email'] ?? 'agent@essivi.com';
-        final tricycleName = snapshot.data?['agent_info']?['tricycle'] ?? 'Non assigné';
+        final tricycleName =
+            snapshot.data?['agent_info']?['tricycle'] ?? 'Non assigné';
         final agentId = snapshot.data?['agent_id'] ?? snapshot.data?['id'] ?? 0;
 
         return SingleChildScrollView(
@@ -665,7 +678,8 @@ class _ImprovedDeliveryDashboardState extends State<ImprovedDeliveryDashboard> {
       future: _agentData,
       builder: (context, snapshot) {
         final agentName = snapshot.data?['nom'] ?? 'Agent de Livraison';
-        final tricycleName = snapshot.data?['agent_info']?['tricycle'] ?? 'Non assigné';
+        final tricycleName =
+            snapshot.data?['agent_info']?['tricycle'] ?? 'Non assigné';
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -823,69 +837,89 @@ class _ImprovedDeliveryDashboardState extends State<ImprovedDeliveryDashboard> {
             .toStringAsFixed(0)
         : '0';
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate responsive chart size based on available width
+        final chartSize = constraints.maxWidth < 400 ? 120.0 : 150.0;
+        final radius = chartSize / 3;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Taux de complétion',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: SizedBox(
-              height: 150,
-              width: 150,
-              child: PieChart(
-                PieChartData(
-                  sections: [
-                    PieChartSectionData(
-                      value: stats.completedDeliveries.toDouble(),
-                      color: Colors.green,
-                      title: 'Complétées',
-                      radius: 50,
-                    ),
-                    PieChartSectionData(
-                      value: (stats.totalDeliveries - stats.completedDeliveries)
-                          .toDouble(),
-                      color: Colors.red,
-                      title: 'En attente',
-                      radius: 50,
-                    ),
-                  ],
-                  sectionsSpace: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Taux de complétion',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: Text(
-              '$completion% complétées',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
+              const SizedBox(height: 16),
+              Center(
+                child: SizedBox(
+                  height: chartSize,
+                  width: chartSize,
+                  child: PieChart(
+                    PieChartData(
+                      sections: [
+                        PieChartSectionData(
+                          value: stats.completedDeliveries.toDouble(),
+                          color: Colors.green,
+                          title: 'Complétées',
+                          radius: radius,
+                          titleStyle: TextStyle(
+                            fontSize: constraints.maxWidth < 400 ? 10 : 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        PieChartSectionData(
+                          value: (stats.totalDeliveries -
+                                  stats.completedDeliveries)
+                              .toDouble(),
+                          color: Colors.red,
+                          title: 'En attente',
+                          radius: radius,
+                          titleStyle: TextStyle(
+                            fontSize: constraints.maxWidth < 400 ? 10 : 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                      sectionsSpace: 2,
+                      centerSpaceRadius: constraints.maxWidth < 400 ? 20 : 30,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  '$completion% complétées',
+                  style: TextStyle(
+                    fontSize: constraints.maxWidth < 400 ? 12 : 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

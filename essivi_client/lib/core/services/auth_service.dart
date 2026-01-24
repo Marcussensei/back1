@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   // Android Emulator
-  static const String baseUrl = 'http://127.0.0.1:5000';
+  static const String baseUrl = 'https://essivi-backend.onrender.com';
 
   /// LOGIN → récupère uniquement le token
   Future<bool> login({

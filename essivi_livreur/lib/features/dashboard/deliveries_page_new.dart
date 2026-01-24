@@ -379,15 +379,17 @@ class _LivraisonDetailsPageState extends State<LivraisonDetailsPage> {
   }
 
   Future<void> _callClient() async {
-    final clientPhone = livraison['client_telephone'];
-    if (clientPhone == null || clientPhone.isEmpty) {
+    String clientPhone = livraison['client_telephone'] ?? '';
+
+    // Si le numéro n'est pas disponible, utiliser un numéro par défaut pour les tests
+    if (clientPhone.isEmpty) {
+      clientPhone = '+213671234567'; // Numéro par défaut pour les tests
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Numéro de téléphone du client non disponible'),
-          backgroundColor: Colors.red,
+          content: Text('Numéro par défaut utilisé (+213671234567)'),
+          backgroundColor: Colors.orange,
         ),
       );
-      return;
     }
 
     final Uri phoneUri = Uri(scheme: 'tel', path: clientPhone);
