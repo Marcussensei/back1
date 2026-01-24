@@ -262,12 +262,13 @@ class Login(Resource):
         
         # Définir le cookie HTTP-only (sécurisé)
         # En développement (localhost), secure=False; en production, secure=True avec HTTPS
+        is_production = False  # Set to True in production
         response.set_cookie(
             'access_token_cookie',
             token,
             httponly=True,  # Inaccessible par JavaScript
-            secure=False,   # Mise à True en production avec HTTPS
-            samesite='Lax',  # Lax permet les cookies en même-site et redirects
+            secure=is_production,   # True en production avec HTTPS, False en dev
+            samesite='None' if is_production else 'Lax',  # None en production, Lax en dev
             max_age=3600,
             path='/'
         )

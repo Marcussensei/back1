@@ -24,12 +24,12 @@ app = Flask(__name__)
 # CONFIG JWT
 # =========================
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "essivi-secret-key-dev")
-app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
+app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]  # Accept both headers and cookies
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = ""  # Accept token without "Bearer " prefix
-app.config["JWT_COOKIE_SECURE"] = True  # À mettre à True en production avec HTTPS
+app.config["JWT_COOKIE_SECURE"] = False  # True en production avec HTTPS
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
-app.config["JWT_COOKIE_SAMESITE"] = "None"
+app.config["JWT_COOKIE_SAMESITE"] = "Lax"  # Lax en dev, None en production
 
 # =========================
 # EXTENSIONS
@@ -44,6 +44,11 @@ allowed_origins = [
 # Add production frontend URL if set in environment
 if os.getenv("FRONTEND_URL"):
     allowed_origins.append(os.getenv("FRONTEND_URL"))
+
+# Also add the Render deployment URL
+render_url = os.getenv("RENDER_URL")
+if render_url:
+    allowed_origins.append(render_url)
 
 CORS(
     app,

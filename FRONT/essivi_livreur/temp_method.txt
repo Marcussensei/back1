@@ -1,0 +1,48 @@
+  Future<List<LatLng>> getRoutePoints(LatLng origin, LatLng destination) async {
+    print("🔍 [DirectionsService] Called with origin: ${origin.latitude},${origin.longitude} -> destination: ${destination.latitude},${destination.longitude}");
+    try {
+      final url =
+          Uri.parse("https://maps.googleapis.com/maps/api/directions/json?"
+              "origin=${origin.latitude},${origin.longitude}&"
+              "destination=${destination.latitude},${destination.longitude}&"
+              "mode=driving&"
+              "key=$_apiKey");
+
+      print("🔍 [DirectionsService] Calling API: $url");
+
+      final response = await http.get(url);
+
+      print("📡 [DirectionsService] Response status: ${response.statusCode}");
+      print("📄 [DirectionsService] Response body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        print("🔍 [DirectionsService] API Status: ${data["status"]}");
+
+        if (data["status"] == "OK" && data["routes"].isNotEmpty) {
+          final route = data["routes"][0];
+          final overviewPolyline = route["overview_polyline"]["points"];
+          print("✅ [DirectionsService] Polyline found: ${overviewPolyline.length} chars");
+          final points = _decodePolyline(overviewPolyline);
+          print("✅ [DirectionsService] Decoded ${points.length} points");
+          return points;
+        } else {
+          print("❌ [DirectionsService] No valid routes found. Status: ${data["status"]}");
+          if (data["error_message"] != null) {
+            print("❌ [DirectionsService] Error message: ${data["error_message"]}");
+          }
+        }
+      } else {
+        print("❌ [DirectionsService] HTTP error: ${response.statusCode}");
+      }
+
+      // Fallback to straight line if directions fail
+      print("⚠️ [DirectionsService] Using fallback straight line");
+      return [origin, destination];
+    } catch (e) {
+      print("❌ [DirectionsService] Exception: $e");
+      // Fallback to straight line
+      return [origin, destination];
+    }
+  }
