@@ -261,14 +261,14 @@ class Login(Resource):
         })
         
         # Définir le cookie HTTP-only (sécurisé)
-        # En développement (localhost), secure=False; en production, secure=True avec HTTPS
-        is_production = False  # Set to True in production
+        # Pour cross-domain (localhost:8080 → render.com), besoin de samesite='None'
+        # secure=False en dev, True en production avec HTTPS
         response.set_cookie(
             'access_token_cookie',
             token,
             httponly=True,  # Inaccessible par JavaScript
-            secure=is_production,   # True en production avec HTTPS, False en dev
-            samesite='None' if is_production else 'Lax',  # None en production, Lax en dev
+            secure=False,   # False en dev (HTTP), True en prod (HTTPS)
+            samesite='None',  # None pour cross-domain, Lax/Strict sinon
             max_age=3600,
             path='/'
         )
