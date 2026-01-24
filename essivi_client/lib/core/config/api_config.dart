@@ -4,12 +4,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class ApiConfig {
   // URL de base de l'API
   static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://127.0.0.1:5000';
-    }
-    // Pour Android Emulator, utiliser 10.0.2.2
-    // Pour iOS Simulator et devices réels, utiliser l'IP locale
-    return 'http://localhost:5000';
+    // Utiliser l'URL de production déployée
+    return 'https://essivivi-project.onrender.com';
   }
 
   // Endpoints

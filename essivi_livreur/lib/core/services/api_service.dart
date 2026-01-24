@@ -8,9 +8,8 @@ typedef OnTokenExpired = void Function();
 
 /// Service pour gérer les appels API
 class ApiService {
-  // Utiliser 127.0.0.1 pour le web, IP du PC pour mobile
-  static String get baseUrl =>
-      kIsWeb ? 'http://127.0.0.1:5000' : 'http://10.0.6.215:5000';
+  // Utiliser l'URL de production déployée
+  static String get baseUrl => 'https://essivivi-project.onrender.com';
   static String? _authToken;
   static OnTokenExpired? _onTokenExpired;
 
