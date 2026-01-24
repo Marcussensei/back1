@@ -285,20 +285,15 @@ class Me(Resource):
     @auth_ns.doc(security="BearerAuth")
     @jwt_required()
     def get(self):
-        print("DEBUG /me: Starting /me endpoint")
         user_id = int(get_jwt_identity())
-        print(f"DEBUG /me: user_id = {user_id}")
         claims = get_jwt()
         user_role = claims.get("role")
-        print(f"DEBUG /me: user_role = {user_role}")
 
         conn = get_connection()
-        print("DEBUG /me: Connection established")
         cur = conn.cursor()
 
         try:
             if user_role == "agent":
-                print("DEBUG /me: Role is agent")
                 # Récupérer les infos utilisateur + agent
                 cur.execute(
                     """
@@ -311,7 +306,6 @@ class Me(Resource):
                     (user_id,)
                 )
                 result = cur.fetchone()
-                print(f"DEBUG /me: Query result for agent: {result}")
                 if result:
                     return {
                         "id": result["id"],
@@ -330,7 +324,6 @@ class Me(Resource):
                     }
 
             elif user_role == "client":
-                print("DEBUG /me: Role is client")
                 # Récupérer les infos utilisateur + client
                 cur.execute(
                     """
@@ -343,7 +336,6 @@ class Me(Resource):
                     (user_id,)
                 )
                 result = cur.fetchone()
-                print(f"DEBUG /me: Query result for client: {result}")
                 if result:
                     return {
                         "id": result["id"],
@@ -362,7 +354,6 @@ class Me(Resource):
                     }
 
             else:
-                print("DEBUG /me: Role is admin or other")
                 # Pour admin ou autres rôles
                 cur.execute(
                     """
@@ -373,9 +364,7 @@ class Me(Resource):
                     (user_id,)
                 )
                 result = cur.fetchone()
-                print(f"DEBUG /me: Query result for admin: {result}")
                 if result:
-                    print(f"DEBUG /me: Returning data for admin: {result}")
                     return {
                         "id": result["id"],
                         "nom": result["nom"],
@@ -384,17 +373,12 @@ class Me(Resource):
                         "created_at": result["created_at"].isoformat() if result["created_at"] else None
                     }
 
-            print("DEBUG /me: No result found, aborting 404")
             auth_ns.abort(404, "Utilisateur non trouvé")
 
         except Exception as e:
-            print(f"DEBUG /me: Exception occurred: {str(e)}")
-            import traceback
-            traceback.print_exc()
             auth_ns.abort(500, f"Erreur serveur: {str(e)}")
         finally:
             conn.close()
-            print("DEBUG /me: Connection closed")
 
 
 @auth_ns.route("/logout")
