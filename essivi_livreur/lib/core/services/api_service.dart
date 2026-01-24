@@ -58,6 +58,7 @@ class ApiService {
     required String email,
     required String password,
   }) async {
+    print('ApiService: Login attempt - URL: $baseUrl/auth/login');
     try {
       final response = await http
           .post(
@@ -68,12 +69,14 @@ class ApiService {
               'password': password,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
+      print('ApiService: Response status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['access_token'] != null) {
           setToken(data['access_token']);
+          print('ApiService: Token set successfully');
         }
         return data;
       } else if (response.statusCode == 401) {
@@ -82,8 +85,10 @@ class ApiService {
         throw Exception('Erreur de connexion: ${response.statusCode}');
       }
     } on SocketException {
+      print('ApiService: SocketException - network error');
       throw Exception('Erreur de connexion réseau');
     } catch (e) {
+      print('ApiService: Exception - $e');
       throw Exception('Erreur de login: $e');
     }
   }
