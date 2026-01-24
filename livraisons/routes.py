@@ -1,0 +1,541 @@
+from flask_restx import Namespace, Resource, fields
+from flask import request
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from db import get_connection
+from datetime import datetime
+from decimal import Decimal
+from notifications import get_notification_service
+
+
+def convert_decimal(obj):
+    """Convert Decimal, datetime, date, and time objects to JSON-serializable types"""
+    import datetime as dt
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, (dt.datetime, dt.date, dt.time)):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: convert_decimal(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [convert_decimal(item) for item in obj]
+    return obj
+
+livraisons_ns = Namespace(
+    "livraisons",
+    path="/livraisons",
+    description="Livraisons management endpoints"
+)
+
+# ===== Swagger Models =====
+livraison_model = livraisons_ns.model("Livraison", {
+    "id": fields.Integer(readonly=True),
+    "commande_id": fields.Integer(required=True),
+    "agent_id": fields.Integer(required=True),
+    "client_id": fields.Integer(required=True),
+    "quantite": fields.Integer(required=True),
+    "montant_percu": fields.Float(required=True),
+    "latitude_gps": fields.Float(required=True),
+    "longitude_gps": fields.Float(required=True),
+    "adresse_livraison": fields.String(required=True),
+    "photo_lieu": fields.String(),
+    "signature_client": fields.String(),
+    "date_livraison": fields.String(readonly=True),
+    "heure_livraison": fields.String(readonly=True),
+    "statut": fields.String(readonly=True),
+})
+
+create_livraison_model = livraisons_ns.model("CreateLivraison", {
+    "commande_id": fields.Integer(required=True),
+    "client_id": fields.Integer(required=True),
+    "quantite": fields.Integer(required=True),
+    "montant_percu": fields.Float(required=True),
+    "latitude_gps": fields.Float(required=True),
+    "longitude_gps": fields.Float(required=True),
+    "adresse_livraison": fields.String(required=True),
+    "photo_lieu": fields.String(),
+    "signature_client": fields.String(),
+    "statut": fields.String(),
+})
+
+
+@livraisons_ns.route("/")
+class LivraisonsList(Resource):
+    @livraisons_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self):
+        """Récupérer la liste de toutes les livraisons avec filtres"""
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            # Récupérer les paramètres de filtrage
+            agent_id = request.args.get("agent_id", type=int)
+            client_id = request.args.get("client_id", type=int)
+            statut = request.args.get("statut")
+            date_debut = request.args.get("date_debut")
+            date_fin = request.args.get("date_fin")
+            montant_min = request.args.get("montant_min", type=float)
+            montant_max = request.args.get("montant_max", type=float)
+            page = request.args.get("page", default=1, type=int)
+            per_page = request.args.get("per_page", default=100, type=int)
+            
+            # Construire la requête dynamiquement
+            query = """
+                SELECT
+                    l.id,
+                    l.commande_id,
+                    l.agent_id,
+                    c.id as client_id,
+                    l.quantite,
+                    l.montant_percu,
+                    l.latitude_gps,
+                    l.longitude_gps,
+                    l.adresse_livraison,
+                    l.photo_lieu,
+                    l.signature_client,
+                    l.date_livraison,
+                    l.heure_livraison,
+                    l.statut,
+                    l.created_at,
+                    a.nom as agent_nom,
+                    a.telephone as agent_telephone,
+                    a.tricycle,
+                    c.nom_point_vente,
+                    c.responsable,
+                    c.telephone as client_telephone
+                FROM livraisons l
+                LEFT JOIN agents a ON l.agent_id = a.id
+                LEFT JOIN clients c ON l.client_id = c.id
+                WHERE 1=1
+            """
+            
+            params = []
+            
+            if agent_id:
+                query += " AND l.agent_id = %s"
+                params.append(agent_id)
+            if client_id:
+                query += " AND l.client_id = %s"
+                params.append(client_id)
+            if statut:
+                query += " AND l.statut = %s"
+                params.append(statut)
+            if date_debut:
+                query += " AND DATE(l.date_livraison) >= %s"
+                params.append(date_debut)
+            if date_fin:
+                query += " AND DATE(l.date_livraison) <= %s"
+                params.append(date_fin)
+            if montant_min is not None:
+                query += " AND l.montant_percu >= %s"
+                params.append(montant_min)
+            if montant_max is not None:
+                query += " AND l.montant_percu <= %s"
+                params.append(montant_max)
+            
+            # Compter le total
+            count_query = query.replace(
+                "SELECT\n                    l.id,\n                    l.commande_id,\n                    l.agent_id,\n                    c.id as client_id,\n                    l.quantite,\n                    l.montant_percu,\n                    l.latitude_gps,\n                    l.longitude_gps,\n                    l.adresse_livraison,\n                    l.photo_lieu,\n                    l.signature_client,\n                    l.date_livraison,\n                    l.heure_livraison,\n                    l.statut,\n                    l.created_at,\n                    a.nom as agent_nom,\n                    a.telephone as agent_telephone,\n                    a.tricycle,\n                    c.nom_point_vente,\n                    c.responsable,\n                    c.telephone as client_telephone",
+                "SELECT COUNT(*) as total"
+            )
+            cur.execute(count_query, params)
+            total = cur.fetchone()["total"]
+            
+            # Ajouter pagination et tri
+            query += " ORDER BY l.created_at DESC LIMIT %s OFFSET %s"
+            params.append(per_page)
+            params.append((page - 1) * per_page)
+            
+            cur.execute(query, params)
+            livraisons = cur.fetchall()
+            
+            return {
+                "livraisons": convert_decimal(livraisons),
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": (total + per_page - 1) // per_page
+            }, 200
+            
+        except Exception as e:
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+    
+    @livraisons_ns.doc(security="BearerAuth")
+    @livraisons_ns.expect(create_livraison_model)
+    @jwt_required()
+    def post(self):
+        """Créer une nouvelle livraison"""
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        user_role = claims.get("role")
+        
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            data = request.get_json()
+            
+            # Récupérer l'ID de l'agent depuis le user_id
+            cur.execute("SELECT id FROM agents WHERE user_id = %s", (user_id,))
+            agent = cur.fetchone()
+            
+            if not agent and user_role != "admin":
+                return {"error": "Vous n'êtes pas un agent"}, 403
+            
+            agent_id = agent["id"] if agent else data.get("agent_id")
+            
+            cur.execute("""
+                INSERT INTO livraisons (
+                    commande_id, agent_id, client_id, quantite, montant_percu,
+                    latitude_gps, longitude_gps, adresse_livraison,
+                    photo_lieu, signature_client, date_livraison, heure_livraison,
+                    statut, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, created_at
+            """, (
+                data.get("commande_id"),
+                agent_id,
+                data.get("client_id"),
+                data.get("quantite"),
+                data.get("montant_percu"),
+                data.get("latitude_gps"),
+                data.get("longitude_gps"),
+                data.get("adresse_livraison"),
+                data.get("photo_lieu"),
+                data.get("signature_client"),
+                datetime.now().date(),
+                datetime.now().time(),
+                "en_cours",
+                datetime.now()
+            ))
+            
+            result = cur.fetchone()
+            conn.commit()
+            
+            return {
+                "message": "Livraison créée avec succès",
+                "livraison_id": result["id"],
+                "created_at": result["created_at"].isoformat()
+            }, 201
+            
+        except Exception as e:
+            conn.rollback()
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+
+
+@livraisons_ns.route("/<int:livraison_id>")
+class LivraisonDetail(Resource):
+
+    @livraisons_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self, livraison_id):
+        """Récupérer les détails d'une livraison"""
+        conn = get_connection()
+        cur = conn.cursor()
+
+        try:
+            cur.execute("""
+                SELECT
+                    l.id,
+                    l.commande_id,
+                    l.agent_id,
+                    l.client_id,
+                    l.quantite,
+                    l.montant_percu,
+                    l.latitude_gps,
+                    l.longitude_gps,
+                    l.adresse_livraison,
+                    l.photo_lieu,
+                    l.signature_client,
+                    l.date_livraison,
+                    l.heure_livraison,
+                    l.statut,
+                    l.created_at,
+                    a.nom as agent_nom,
+                    a.telephone as agent_telephone,
+                    a.tricycle,
+                    c.nom_point_vente,
+                    c.responsable,
+                    c.telephone as client_telephone,
+                    c.adresse
+                FROM livraisons l
+                LEFT JOIN agents a ON l.agent_id = a.id
+                LEFT JOIN clients c ON l.client_id = c.id
+                WHERE l.id = %s
+            """, (livraison_id,))
+
+            livraison = cur.fetchone()
+
+            if not livraison:
+                return {"error": "Livraison non trouvée"}, 404
+
+            return convert_decimal(livraison), 200
+
+        except Exception as e:
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+    
+    @livraisons_ns.doc(security="BearerAuth")
+    @livraisons_ns.expect(create_livraison_model)
+    @jwt_required()
+    def put(self, livraison_id):
+        """Modifier une livraison"""
+        conn = get_connection()
+        cur = conn.cursor()
+
+        try:
+            data = request.get_json()
+
+            # Récupérer le statut actuel avant la mise à jour
+            cur.execute("SELECT commande_id, statut FROM livraisons WHERE id = %s", (livraison_id,))
+            livraison_actuelle = cur.fetchone()
+
+            if not livraison_actuelle:
+                return {"error": "Livraison non trouvée"}, 404
+
+            cur.execute("""
+                UPDATE livraisons
+                SET
+                    quantite = COALESCE(%s, quantite),
+                    montant_percu = COALESCE(%s, montant_percu),
+                    latitude_gps = COALESCE(%s, latitude_gps),
+                    longitude_gps = COALESCE(%s, longitude_gps),
+                    adresse_livraison = COALESCE(%s, adresse_livraison),
+                    photo_lieu = COALESCE(%s, photo_lieu),
+                    signature_client = COALESCE(%s, signature_client),
+                    statut = COALESCE(%s, statut),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id, updated_at, statut
+            """, (
+                data.get("quantite"),
+                data.get("montant_percu"),
+                data.get("latitude_gps"),
+                data.get("longitude_gps"),
+                data.get("adresse_livraison"),
+                data.get("photo_lieu"),
+                data.get("signature_client"),
+                data.get("statut"),
+                livraison_id
+            ))
+
+            result = cur.fetchone()
+
+            if not result:
+                return {"error": "Livraison non trouvée"}, 404
+
+            # Si le statut de la livraison passe à "livree", mettre à jour le statut de la commande à "livree"
+            if data.get("statut") == "livree" and livraison_actuelle["statut"] != "livree":
+                cur.execute("""
+                    UPDATE commandes
+                    SET statut = 'livree', date_livraison_effective = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (livraison_actuelle["commande_id"],))
+
+            conn.commit()
+
+            return {
+                "message": "Livraison modifiée avec succès",
+                "livraison_id": result["id"],
+                "updated_at": result["updated_at"].isoformat()
+            }, 200
+
+        except Exception as e:
+            conn.rollback()
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+    
+    @livraisons_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def delete(self, livraison_id):
+        """Supprimer une livraison"""
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            cur.execute("DELETE FROM livraisons WHERE id = %s RETURNING id", (livraison_id,))
+            
+            result = cur.fetchone()
+            
+            if not result:
+                return {"error": "Livraison non trouvée"}, 404
+            
+            conn.commit()
+            
+            return {"message": "Livraison supprimée avec succès"}, 200
+            
+        except Exception as e:
+            conn.rollback()
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+
+
+# Endpoint to assign an agent to a delivery
+assign_model = livraisons_ns.model("AssignAgent", {
+    "agent_id": fields.Integer(required=True),
+})
+
+
+@livraisons_ns.route("/<int:livraison_id>/assign")
+class AssignAgent(Resource):
+    @livraisons_ns.doc(security="BearerAuth")
+    @livraisons_ns.expect(assign_model)
+    @jwt_required()
+    def put(self, livraison_id):
+        """Assigner un agent à une livraison"""
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            data = request.get_json()
+            agent_id = data.get("agent_id")
+            
+            if not agent_id:
+                return {"error": "agent_id est requis"}, 400
+            
+            # Vérifier que l'agent existe
+            cur.execute("SELECT id, nom, telephone FROM agents WHERE id = %s", (agent_id,))
+            agent = cur.fetchone()
+            
+            if not agent:
+                return {"error": "Agent non trouvé"}, 404
+            
+            # Vérifier que la livraison existe
+            cur.execute("""
+                SELECT l.id, l.client_id, l.adresse_livraison 
+                FROM livraisons l
+                WHERE l.id = %s
+            """, (livraison_id,))
+            livraison = cur.fetchone()
+            
+            if not livraison:
+                return {"error": "Livraison non trouvée"}, 404
+            
+            # Assigner l'agent et mettre à jour le statut
+            cur.execute("""
+                UPDATE livraisons
+                SET
+                    agent_id = %s,
+                    statut = 'en_cours',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id, agent_id, statut, updated_at, commande_id
+            """, (agent_id, livraison_id))
+
+            result = cur.fetchone()
+
+            # Mettre à jour le statut et l'agent de la commande associée à "en_cours"
+            cur.execute("""
+                UPDATE commandes
+                SET statut = 'en_cours', agent_id = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (agent_id, result["commande_id"]))
+
+            conn.commit()
+            
+            # Notify client about agent assignment
+            cur.execute("""
+                SELECT c.id, u.email, u.nom as client_name
+                FROM clients c
+                JOIN users u ON c.user_id = u.id
+                WHERE c.id = %s
+            """, (livraison["client_id"],))
+            client = cur.fetchone()
+
+            if client and client["email"]:
+                notification_service = get_notification_service()
+                notification_service.notify_agent_assignment(
+                    client_email=client["email"],
+                    client_name=client["client_name"],
+                    agent_name=agent["nom"],
+                    agent_phone=agent.get("telephone", "N/A"),
+                    delivery_address=livraison["adresse_livraison"] or "Adresse non spécifiée",
+                    delivery_id=livraison_id
+                )
+
+            # Notify agent about delivery assignment
+            cur.execute("""
+                SELECT u.id as user_id, u.nom as agent_name
+                FROM agents a
+                JOIN users u ON a.user_id = u.id
+                WHERE a.id = %s
+            """, (agent_id,))
+            agent_user = cur.fetchone()
+
+            if agent_user:
+                notification_service = get_notification_service()
+                notification_service.notify_agent_delivery_assignment(
+                    agent_user_id=agent_user["user_id"],
+                    agent_name=agent_user["agent_name"],
+                    delivery_id=livraison_id,
+                    client_name=client["client_name"] if client else "Client",
+                    delivery_address=livraison["adresse_livraison"] or "Adresse non spécifiée"
+                )
+            
+            return {
+                "message": "Agent assigné avec succès",
+                "livraison_id": result["id"],
+                "agent_id": result["agent_id"],
+                "statut": result["statut"],
+                "agent_nom": agent["nom"],
+                "updated_at": result["updated_at"].isoformat()
+            }, 200
+            
+        except Exception as e:
+            conn.rollback()
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+
+
+@livraisons_ns.route("/statistiques/jour")
+class LivraisonsStatistiquesJour(Resource):
+    @livraisons_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self):
+        """Récupérer les statistiques du jour"""
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            cur.execute("""
+                SELECT
+                    COUNT(*) as nombre_livraisons,
+                    SUM(quantite) as quantite_totale,
+                    SUM(montant_percu) as montant_total,
+                    AVG(montant_percu) as montant_moyen
+                FROM livraisons
+                WHERE DATE(date_livraison) = CURRENT_DATE
+            """)
+            
+            stats = cur.fetchone()
+            
+            return {
+                "nombre_livraisons": stats["nombre_livraisons"] or 0,
+                "quantite_totale": stats["quantite_totale"] or 0,
+                "montant_total": float(stats["montant_total"] or 0),
+                "montant_moyen": float(stats["montant_moyen"] or 0)
+            }, 200
+            
+        except Exception as e:
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+
+
+@livraisons_ns.route("/tours")
+class ToursAPI(Resource):
+    @livraisons_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self):
+        """Récupérer la liste des tournées (déprécié: utiliser /tours)"""
+        # Cet endpoint est déprécié, utiliser GET /tours à la place
+        return {"message": "Endpoint déprécié. Utiliser GET /tours à la place"}, 410
