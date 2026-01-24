@@ -47,7 +47,7 @@ class ClientApiService {
             headers: _getHeaders(includeAuth: false),
             body: jsonEncode({'email': email, 'password': password}),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       print('ClientApiService: Response status: ${response.statusCode}');
       if (response.statusCode == 200) {
