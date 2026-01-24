@@ -39,6 +39,7 @@ class ClientApiService {
     required String email,
     required String password,
   }) async {
+    print('ClientApiService: Login attempt - URL: $baseUrl/auth/login');
     try {
       final response = await http
           .post(
@@ -48,10 +49,12 @@ class ClientApiService {
           )
           .timeout(const Duration(seconds: 10));
 
+      print('ClientApiService: Response status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['access_token'] != null) {
           setToken(data['access_token']);
+          print('ClientApiService: Token set successfully');
         }
         return data;
       } else if (response.statusCode == 401) {
@@ -60,8 +63,10 @@ class ClientApiService {
         throw Exception('Erreur de connexion: ${response.statusCode}');
       }
     } on SocketException {
+      print('ClientApiService: SocketException - network error');
       throw Exception('Erreur de connexion réseau');
     } catch (e) {
+      print('ClientApiService: Exception - $e');
       throw Exception('Erreur de login: $e');
     }
   }
