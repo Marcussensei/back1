@@ -78,10 +78,13 @@ const DeliveryDetail = () => {
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [trackingSteps, setTrackingSteps] = useState<TrackingStep[]>([]);
 
+  // Extract numeric ID from formatted ID (LIV-59 -> 59)
+  const numericDeliveryId = delivery?.id ? parseInt(delivery.id.replace('LIV-', '')) : 0;
+
   // Fetch tracking history and notifications from API
-  const { data: trackingData, isLoading: trackingLoading } = useDeliveryTrackingHistory(delivery?.id || 0);
-  const { data: notificationsData, isLoading: notificationsLoading } = useDeliveryNotificationHistory(delivery?.id || 0);
-  const sendNotification = useSendDeliveryNotification(delivery?.id || 0);
+  const { data: trackingData, isLoading: trackingLoading } = useDeliveryTrackingHistory(numericDeliveryId);
+  const { data: notificationsData, isLoading: notificationsLoading } = useDeliveryNotificationHistory(numericDeliveryId);
+  const sendNotification = useSendDeliveryNotification(numericDeliveryId);
 
   const handleNotificationSent = (notification: NotificationRecord) => {
     // Refetch notifications to show the newly sent one
