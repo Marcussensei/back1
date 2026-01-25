@@ -2,6 +2,7 @@ from flask_restx import Namespace, Resource, fields
 from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from db import get_connection
+import traceback
 from datetime import datetime
 from decimal import Decimal
 
@@ -69,6 +70,9 @@ class AgentsTempsReel(Resource):
             }, 200
             
         except Exception as e:
+            # Log full stack trace to server logs for debugging
+            print("[cartographie/ClientsGeo] Exception:")
+            print(traceback.format_exc())
             return {"error": f"Erreur serveur: {str(e)}"}, 500
         finally:
             conn.close()
