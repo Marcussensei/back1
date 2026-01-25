@@ -20,7 +20,7 @@ class NotificationService:
     """Service for sending notifications using Brevo (Sendinblue)"""
     
     def __init__(self):
-        self.brevo_api_key = os.getenv("BREVO_API_KEY")
+        self.brevo_api_key = os.getenv("BREVO_API_KEY", "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")
         self.sender_email = os.getenv("SENDER_EMAIL", "noreply@essivi.com")
         self.sender_name = os.getenv("SENDER_NAME", "ESSIVI Notifications")
         
