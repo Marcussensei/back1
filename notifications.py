@@ -1,5 +1,5 @@
 """
-Notifications module - Handle SMS and Email notifications using Brevo (Sendinblue)
+Notifications module - Handle SMS and Email notifications using Resend
 """
 import os
 import requests
@@ -17,76 +17,69 @@ except ImportError:
 
 
 class NotificationService:
-    """Service for sending notifications using Brevo (Sendinblue)"""
-    
+    """Service for sending notifications using Resend"""
+
     def __init__(self):
-        self.brevo_api_key = os.getenv("BREVO_API_KEY", "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")
+        self.resend_api_key = os.getenv("RESEND_API_KEY")
         self.sender_email = os.getenv("SENDER_EMAIL", "noreply@essivi.com")
         self.sender_name = os.getenv("SENDER_NAME", "ESSIVI Notifications")
-        
-        if self.brevo_api_key:
-            print("[NotificationService] Brevo initialized")
+
+        if self.resend_api_key:
+            print("[NotificationService] Resend initialized")
         else:
-            print("[NotificationService] ⚠️  BREVO_API_KEY not set")
+            print("[NotificationService] ⚠️  RESEND_API_KEY not set")
     
     
     def send_email(self, recipient_email: str, subject: str, body: str, html_body: str = None) -> bool:
         """
-        Send email notification using Brevo API
-        
+        Send email notification using Resend API
+
         Args:
             recipient_email: Email address of recipient
             subject: Email subject
             body: Plain text body
             html_body: HTML body (optional)
-        
+
         Returns:
             True if sent successfully, False otherwise
         """
         try:
-            if not self.brevo_api_key:
-                print(f"[send_email] ❌ Brevo not configured")
+            if not self.resend_api_key:
+                print(f"[send_email] ❌ Resend not configured")
                 return False
-            
+
             print(f"[send_email] Preparing email to {recipient_email}")
-            
-            # Brevo API endpoint
-            url = "https://api.brevo.com/v3/smtp/email"
-            
+
+            # Resend API endpoint
+            url = "https://api.resend.com/emails"
+
             # Headers with API key
             headers = {
-                "api-key": self.brevo_api_key,
+                "Authorization": f"Bearer {self.resend_api_key}",
                 "Content-Type": "application/json"
             }
-            
+
             # Email payload
             payload = {
-                "sender": {
-                    "name": self.sender_name,
-                    "email": self.sender_email
-                },
-                "to": [
-                    {
-                        "email": recipient_email
-                    }
-                ],
+                "from": self.sender_email,
+                "to": [recipient_email],
                 "subject": subject,
-                "textContent": body,
-                "htmlContent": html_body or f"<p>{body}</p>"
+                "text": body,
+                "html": html_body or f"<p>{body}</p>"
             }
-            
-            print(f"[send_email] Sending via Brevo API")
+
+            print(f"[send_email] Sending via Resend API")
             # Send email
             response = requests.post(url, json=payload, headers=headers, timeout=10)
-            
+
             if 200 <= response.status_code < 300:
                 print(f"✅ Email sent to {recipient_email} (Status: {response.status_code})")
                 return True
             else:
-                print(f"❌ Brevo error: Status {response.status_code}")
+                print(f"❌ Resend error: Status {response.status_code}")
                 print(f"   Response: {response.text}")
                 return False
-                
+
         except Exception as e:
             print(f"❌ Error sending email to {recipient_email}: {str(e)}")
             import traceback
