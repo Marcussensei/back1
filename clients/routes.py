@@ -486,3 +486,90 @@ class ClientOrders(Resource):
             clients_ns.abort(500, f"Erreur serveur: {str(e)}")
         finally:
             conn.close()
+
+@clients_ns.route("/<int:client_id>/monthly-stats")
+class ClientMonthlyStats(Resource):
+    def options(self, client_id):
+        """Handle CORS preflight requests"""
+        from flask import make_response
+        response = make_response()
+        response.status_code = 200
+        return response
+    
+    @clients_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self, client_id):
+        """Récupérer les statistiques mensuelles d'un client"""
+        conn = get_connection()
+        cur = conn.cursor()
+
+        try:
+            # Vérifier que le client existe
+            cur.execute("SELECT id FROM clients WHERE id = %s", (client_id,))
+            if not cur.fetchone():
+                clients_ns.abort(404, "Client non trouvé")
+
+            # Statistiques des 6 derniers mois
+            cur.execute("""
+                SELECT
+                    TO_CHAR(DATE_TRUNC('month', c.date_commande), 'Mon') as month,
+                    TO_CHAR(DATE_TRUNC('month', c.date_commande), 'YYYY') as year,
+                    COUNT(*) as orders,
+                    COALESCE(SUM(c.montant_total), 0) as amount
+                FROM commandes c
+                WHERE c.client_id = %s
+                AND c.date_commande > CURRENT_DATE - INTERVAL '6 months'
+                GROUP BY DATE_TRUNC('month', c.date_commande), TO_CHAR(DATE_TRUNC('month', c.date_commande), 'Mon'), TO_CHAR(DATE_TRUNC('month', c.date_commande), 'YYYY')
+                ORDER BY DATE_TRUNC('month', c.date_commande) DESC
+            """, (client_id,))
+
+            monthly_data = cur.fetchall()
+
+            # Statistiques du mois en cours
+            cur.execute("""
+                SELECT
+                    COUNT(*) as this_month_orders,
+                    COALESCE(SUM(montant_total), 0) as this_month_amount
+                FROM commandes
+                WHERE client_id = %s
+                AND DATE_TRUNC('month', date_commande) = DATE_TRUNC('month', CURRENT_DATE)
+            """, (client_id,))
+
+            current_month = cur.fetchone()
+
+            # Statistiques globales
+            cur.execute("""
+                SELECT
+                    COUNT(*) as total_orders,
+                    COALESCE(SUM(montant_total), 0) as total_amount,
+                    COALESCE(AVG(montant_total), 0) as avg_order_value
+                FROM commandes
+                WHERE client_id = %s
+            """, (client_id,))
+
+            global_stats = cur.fetchone()
+
+            return {
+                "monthly_stats": [
+                    {
+                        "month": f"{row['month']} {row['year']}",
+                        "orders": row['orders'] or 0,
+                        "amount": float(row['amount'] or 0)
+                    }
+                    for row in monthly_data
+                ],
+                "current_month": {
+                    "orders": current_month['this_month_orders'] or 0,
+                    "amount": float(current_month['this_month_amount'] or 0)
+                },
+                "global_stats": {
+                    "total_orders": global_stats['total_orders'] or 0,
+                    "total_amount": float(global_stats['total_amount'] or 0),
+                    "avg_order_value": float(global_stats['avg_order_value'] or 0)
+                }
+            }
+
+        except Exception as e:
+            clients_ns.abort(500, f"Erreur: {str(e)}")
+        finally:
+            conn.close()

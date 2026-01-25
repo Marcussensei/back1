@@ -116,6 +116,14 @@ export const clientsAPI = {
     }),
 
   getGeoLocations: () => apiRequest("/cartographie/clients/geo"),
+
+  getOrders: (clientId: number, params?: Record<string, any>) => {
+    const combinedParams: Record<string, string> = { ...params, client_id: clientId.toString() };
+    const query = new URLSearchParams(combinedParams).toString();
+    return apiRequest(`/commandes/?${query}`);
+  },
+
+  getMonthlyStats: (clientId: number) => apiRequest(`/clients/${clientId}/monthly-stats`),
 };
 
 // Commands APIs

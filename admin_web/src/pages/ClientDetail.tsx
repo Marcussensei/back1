@@ -31,10 +31,10 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
-import { useClient, useUpdateClient } from "@/hooks/useApi";
+import { useClient, useUpdateClient, useClientOrders, useClientMonthlyStats } from "@/hooks/useApi";
 import { EditClientForm } from "@/components/clients/EditClientForm";
 
-// Mock client data
+// Mock client data - À supprimer après vérification
 const clientsData: Record<string, any> = {
   "CL-001": {
     id: "CL-001",
@@ -86,17 +86,7 @@ const clientsData: Record<string, any> = {
   },
 };
 
-const typeConfig = {
-  retailer: { label: "Détaillant", className: "bg-info/10 text-info border-info/20" },
-  wholesaler: { label: "Grossiste", className: "bg-secondary/20 text-secondary-foreground border-secondary/30" },
-  institution: { label: "Institution", className: "bg-accent/10 text-accent border-accent/20" },
-};
-
-const statusConfig = {
-  active: { label: "Actif", className: "bg-success/10 text-success border-success/20" },
-  inactive: { label: "Inactif", className: "bg-muted text-muted-foreground border-border" },
-};
-
+// Données codées en dur à remplacer
 const orderHistory = [
   { id: "CMD-001", date: "23/12/2024", quantity: 50, amount: 25000, status: "delivered" },
   { id: "CMD-002", date: "20/12/2024", quantity: 30, amount: 15000, status: "delivered" },
@@ -121,10 +111,26 @@ const ClientDetail = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const { toast } = useToast();
 
-  const { data: clientData, isLoading, isError, error, refetch } = useClient(Number(id));
-  const updateClientMutation = useUpdateClient(Number(id));
+  const clientId = Number(id);
+  const { data: client, isLoading, isError, error, refetch } = useClient(clientId);
+  const { data: ordersResponse, isLoading: ordersLoading } = useClientOrders(clientId);
+  const { data: statsData, isLoading: statsLoading } = useClientMonthlyStats(clientId);
+  const updateClientMutation = useUpdateClient(clientId);
 
-  const client = clientData;
+  // Extraire l'array de commandes de la réponse
+  const ordersData = Array.isArray(ordersResponse) ? ordersResponse : (ordersResponse?.commandes || []);
+
+  // Mapper les commandes API au format attendu
+  const orderHistory = ordersData?.map((order: any) => ({
+    id: order.id,
+    date: new Date(order.date_commande).toLocaleDateString('fr-FR'),
+    quantity: 0, // Pas de quantité dans l'API commandes
+    amount: order.montant_total || 0,
+    status: order.statut?.toLowerCase() === 'livree' ? 'delivered' : order.statut?.toLowerCase() === 'annulee' ? 'cancelled' : 'pending',
+  })) || [];
+
+  // Mapper les statistiques mensuelles
+  const monthlyStats = statsData?.monthly_stats?.slice(0, 6).reverse() || [];
 
   const handleUpdateClient = async (data: any) => {
     try {
@@ -264,7 +270,7 @@ const ClientDetail = () => {
                   <ShoppingCart className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-heading font-bold">{client.totalOrders}</p>
+                  <p className="text-2xl font-heading font-bold">{statsData?.global_stats?.total_orders || 0}</p>
                   <p className="text-xs text-muted-foreground">Commandes</p>
                 </div>
               </div>
@@ -277,7 +283,7 @@ const ClientDetail = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-heading font-bold">
-                    {(client.totalAmount / 1000).toFixed(0)}K
+                    {((statsData?.global_stats?.total_amount || 0) / 1000).toFixed(0)}K
                   </p>
                   <p className="text-xs text-muted-foreground">FCFA Total</p>
                 </div>
@@ -290,7 +296,7 @@ const ClientDetail = () => {
                   <TrendingUp className="w-5 h-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-2xl font-heading font-bold">{client.avgOrderValue}</p>
+                  <p className="text-2xl font-heading font-bold">{Math.round(statsData?.global_stats?.avg_order_value || 0)}</p>
                   <p className="text-xs text-muted-foreground">FCFA/Cmd</p>
                 </div>
               </div>
@@ -302,8 +308,10 @@ const ClientDetail = () => {
                   <Clock className="w-5 h-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm font-heading font-bold">{client.lastOrderDate}</p>
-                  <p className="text-xs text-muted-foreground">Dernière cmd</p>
+                  <p className="text-sm font-heading font-bold">
+                    {statsData?.current_month?.orders > 0 ? "Actif ce mois" : "Aucune cmd"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Activité</p>
                 </div>
               </div>
             </Card>
@@ -312,65 +320,88 @@ const ClientDetail = () => {
           {/* Monthly Performance */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Performance mensuelle</h3>
-            <div className="space-y-4">
-              {monthlyStats.map((stat, index) => (
-                <div key={stat.month} className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{stat.month} 2024</span>
-                    <span className="text-muted-foreground">
-                      {stat.orders} cmd · {(stat.amount / 1000).toFixed(0)}K FCFA
-                    </span>
+            {statsLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <RefreshCw className="w-6 h-6 animate-spin" />
+              </div>
+            ) : monthlyStats.length > 0 ? (
+              <div className="space-y-4">
+                {monthlyStats.map((stat, index) => (
+                  <div key={stat.month} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">{stat.month}</span>
+                      <span className="text-muted-foreground">
+                        {stat.orders} cmd · {(stat.amount / 1000).toFixed(0)}K FCFA
+                      </span>
+                    </div>
+                    <Progress
+                      value={(stat.orders / 30) * 100}
+                      className="h-2"
+                    />
                   </div>
-                  <Progress
-                    value={(stat.orders / 30) * 100}
-                    className="h-2"
-                  />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Aucune donnée statistique disponible</p>
+              </div>
+            )}
           </Card>
 
           {/* Order History */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Historique des commandes</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left border-b border-border">
-                    <th className="pb-3 text-sm font-medium text-muted-foreground">ID</th>
-                    <th className="pb-3 text-sm font-medium text-muted-foreground">Date</th>
-                    <th className="pb-3 text-sm font-medium text-muted-foreground">Quantité</th>
-                    <th className="pb-3 text-sm font-medium text-muted-foreground">Montant</th>
-                    <th className="pb-3 text-sm font-medium text-muted-foreground">Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orderHistory.map((order) => (
-                    <tr key={order.id} className="border-b border-border/50">
-                      <td className="py-3 font-mono text-sm">{order.id}</td>
-                      <td className="py-3 text-sm">{order.date}</td>
-                      <td className="py-3 text-sm">{order.quantity} bonbonnes</td>
-                      <td className="py-3 text-sm font-medium">
-                        {order.amount.toLocaleString()} FCFA
-                      </td>
-                      <td className="py-3">
-                        {order.status === "delivered" ? (
-                          <div className="flex items-center gap-1 text-success">
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="text-sm">Livrée</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-destructive">
-                            <XCircle className="w-4 h-4" />
-                            <span className="text-sm">Annulée</span>
-                          </div>
-                        )}
-                      </td>
+            {ordersLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <RefreshCw className="w-6 h-6 animate-spin" />
+              </div>
+            ) : orderHistory.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left border-b border-border">
+                      <th className="pb-3 text-sm font-medium text-muted-foreground">ID</th>
+                      <th className="pb-3 text-sm font-medium text-muted-foreground">Date</th>
+                      <th className="pb-3 text-sm font-medium text-muted-foreground">Montant</th>
+                      <th className="pb-3 text-sm font-medium text-muted-foreground">Statut</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {orderHistory.map((order) => (
+                      <tr key={order.id} className="border-b border-border/50">
+                        <td className="py-3 font-mono text-sm">{order.id}</td>
+                        <td className="py-3 text-sm">{order.date}</td>
+                        <td className="py-3 text-sm font-medium">
+                          {order.amount.toLocaleString()} FCFA
+                        </td>
+                        <td className="py-3">
+                          {order.status === "delivered" ? (
+                            <div className="flex items-center gap-1 text-success">
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="text-sm">Livrée</span>
+                            </div>
+                          ) : order.status === "cancelled" ? (
+                            <div className="flex items-center gap-1 text-destructive">
+                              <XCircle className="w-4 h-4" />
+                              <span className="text-sm">Annulée</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-warning">
+                              <Clock className="w-4 h-4" />
+                              <span className="text-sm">En attente</span>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Aucune commande enregistrée pour ce client</p>
+              </div>
+            )}
           </Card>
         </div>
       </div>

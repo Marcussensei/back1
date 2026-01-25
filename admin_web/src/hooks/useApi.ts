@@ -126,6 +126,22 @@ export const useDeleteClient = () => {
   });
 };
 
+export const useClientOrders = (clientId: number, params?: Record<string, any>) => {
+  return useQuery({
+    queryKey: ["clientOrders", clientId, params],
+    queryFn: () => clientsAPI.getOrders(clientId, params),
+    enabled: !!clientId,
+  });
+};
+
+export const useClientMonthlyStats = (clientId: number) => {
+  return useQuery({
+    queryKey: ["clientMonthlyStats", clientId],
+    queryFn: () => clientsAPI.getMonthlyStats(clientId),
+    enabled: !!clientId,
+  });
+};
+
 // Commands Hooks
 export const useCommands = (params?: Record<string, any>) => {
   return useQuery({
