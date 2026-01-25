@@ -486,6 +486,13 @@ class ActiveAgentsLocations(Resource):
 
 @agents_ns.route("/<int:agent_id>/monthly-stats")
 class AgentMonthlyStats(Resource):
+    def options(self, agent_id):
+        """Handle CORS preflight requests"""
+        from flask import make_response
+        response = make_response()
+        response.status_code = 200
+        return response
+    
     @agents_ns.doc(security="BearerAuth")
     @jwt_required()
     def get(self, agent_id):

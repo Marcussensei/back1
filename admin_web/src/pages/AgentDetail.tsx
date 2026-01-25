@@ -63,13 +63,16 @@ const AgentDetail = () => {
 
   const agentId = Number(id);
   const { data: agent, isLoading, isError, error, refetch } = useAgent(agentId);
-  const { data: deliveryData, isLoading: deliveriesLoading } = useAgentDeliveries(agentId);
+  const { data: deliveryResponse, isLoading: deliveriesLoading } = useAgentDeliveries(agentId);
   const { data: statsData, isLoading: statsLoading } = useAgentMonthlyStats(agentId);
+
+  // Extraire l'array de livraisons de la réponse
+  const deliveryData = Array.isArray(deliveryResponse) ? deliveryResponse : (deliveryResponse?.livraisons || []);
 
   // Mapper les livraisons API au format attendu
   const deliveryHistory = deliveryData?.map((delivery: any) => ({
     id: delivery.id,
-    client: delivery.client_nom || "Client inconnu",
+    client: delivery.nom_point_vente || "Client inconnu",
     date: new Date(delivery.created_at).toLocaleDateString('fr-FR'),
     time: new Date(delivery.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
     status: delivery.statut?.toLowerCase() === 'livree' ? 'completed' : delivery.statut?.toLowerCase() === 'annulee' ? 'cancelled' : 'pending',
