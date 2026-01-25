@@ -432,6 +432,7 @@ class CommandeAgentLocation(Resource):
                 "latitude": float(agent["latitude"]),
                 "longitude": float(agent["longitude"]),
                 "lastLocationUpdate": agent["last_location_update"].isoformat() if agent["last_location_update"] else None,
+                "client_id": commande["client_id"],  # Ajouter l'ID du client pour le LocationService
             }, 200
 
         except Exception as e:

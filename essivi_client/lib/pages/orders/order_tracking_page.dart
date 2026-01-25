@@ -41,19 +41,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
   }
 
   Future<void> _initializeTracking() async {
-    // Récupérer l'ID du client depuis SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final clientId = prefs.getInt('client_id');
-
-    if (clientId != null) {
-      setState(() => _clientId = clientId);
-      // Démarrer le suivi de position
-      _locationService.startLocationTracking(clientId);
-      debugPrint('✅ Suivi de position démarré pour le client $clientId');
-    } else {
-      debugPrint('⚠️ ID client non trouvé');
-    }
-
+    // Charger d'abord la position de l'agent et récupérer le client_id
     _loadAgentLocation();
   }
 
@@ -87,6 +75,17 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
         debugPrint('   - Latitude: ${agentLocation['latitude']}');
         debugPrint('   - Longitude: ${agentLocation['longitude']}');
         debugPrint('   - Agent: ${agentLocation['name']}');
+
+        // Récupérer le client_id depuis la réponse API
+        final clientIdFromApi = agentLocation['client_id'];
+        if (clientIdFromApi != null) {
+          setState(() => _clientId = clientIdFromApi);
+          // Démarrer le suivi de position avec le client_id depuis l'API
+          _locationService.startLocationTracking(clientIdFromApi);
+          debugPrint('✅ Suivi de position démarré pour le client $clientIdFromApi');
+        } else {
+          debugPrint('⚠️ client_id non reçu de l\'API');
+        }
 
         setState(() {
           _agentLocation = agentLocation;
