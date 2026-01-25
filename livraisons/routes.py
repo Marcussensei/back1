@@ -584,10 +584,10 @@ class NotificationsHistory(Resource):
                     "status": "delivered" if notif["status"] else "pending"
                 })
             
-            return {
+            return convert_decimal({
                 "notifications": mapped_notifications,
                 "total": len(mapped_notifications)
-            }, 200
+            }), 200
             
         except Exception as e:
             return {"error": f"Erreur serveur: {str(e)}"}, 500
@@ -663,7 +663,7 @@ class TrackingHistory(Resource):
                 "id": "3",
                 "title": "En route",
                 "description": "Le livreur est en route vers la destination" if is_in_progress or is_completed else "Le livreur partira bientôt",
-                "time": None if not (is_in_progress or is_completed) else (livraison["heure_livraison"] if livraison["heure_livraison"] else None),
+                "time": None if not (is_in_progress or is_completed) else (livraison["heure_livraison"].strftime("%H:%M") if livraison["heure_livraison"] else None),
                 "completed": is_in_progress or is_completed,
                 "current": is_in_progress and not is_completed
             })
@@ -688,12 +688,12 @@ class TrackingHistory(Resource):
                 "current": False
             })
             
-            return {
+            return convert_decimal({
                 "tracking_steps": tracking_steps,
                 "current_status": livraison["statut"],
                 "agent_name": livraison["agent_nom"],
                 "client_name": livraison["client_name"]
-            }, 200
+            }), 200
             
         except Exception as e:
             return {"error": f"Erreur serveur: {str(e)}"}, 500
