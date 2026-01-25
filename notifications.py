@@ -1,11 +1,8 @@
 """
-Notifications module - Handle SMS and Email notifications
+Notifications module - Handle SMS and Email notifications using Brevo (Sendinblue)
 """
 import os
-import smtplib
-import socket
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 from datetime import datetime
 from pathlib import Path
 
@@ -18,18 +15,24 @@ try:
 except ImportError:
     pass  # dotenv not installed, will use os.getenv() only
 
+
 class NotificationService:
-    """Service for sending notifications"""
+    """Service for sending notifications using Brevo (Sendinblue)"""
     
     def __init__(self):
-        self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        self.brevo_api_key = os.getenv("BREVO_API_KEY", "")
         self.sender_email = os.getenv("SENDER_EMAIL", "noreply@essivi.com")
-        self.sender_password = os.getenv("SENDER_PASSWORD", "")
+        self.sender_name = os.getenv("SENDER_NAME", "ESSIVI Notifications")
+        
+        if self.brevo_api_key:
+            print("[NotificationService] Brevo initialized")
+        else:
+            print("[NotificationService] ⚠️  BREVO_API_KEY not set")
+    
     
     def send_email(self, recipient_email: str, subject: str, body: str, html_body: str = None) -> bool:
         """
-        Send email notification
+        Send email notification using Brevo API
         
         Args:
             recipient_email: Email address of recipient
@@ -41,40 +44,49 @@ class NotificationService:
             True if sent successfully, False otherwise
         """
         try:
+            if not self.brevo_api_key:
+                print(f"[send_email] ❌ Brevo not configured")
+                return False
+            
             print(f"[send_email] Preparing email to {recipient_email}")
             
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
-            msg["From"] = self.sender_email
-            msg["To"] = recipient_email
-            msg["Date"] = datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")
+            # Brevo API endpoint
+            url = "https://api.brevo.com/v3/smtp/email"
             
-            # Add plain text part
-            msg.attach(MIMEText(body, "plain"))
+            # Headers with API key
+            headers = {
+                "api-key": self.brevo_api_key,
+                "Content-Type": "application/json"
+            }
             
-            # Add HTML part if provided
-            if html_body:
-                msg.attach(MIMEText(html_body, "html"))
+            # Email payload
+            payload = {
+                "sender": {
+                    "name": self.sender_name,
+                    "email": self.sender_email
+                },
+                "to": [
+                    {
+                        "email": recipient_email
+                    }
+                ],
+                "subject": subject,
+                "textContent": body,
+                "htmlContent": html_body or f"<p>{body}</p>"
+            }
             
-            print(f"[send_email] Connecting to SMTP server {self.smtp_server}:{self.smtp_port}")
-            # Connect and send with timeout
-            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10) as server:
-                print(f"[send_email] Connected to SMTP, starting TLS")
-                server.starttls()
-                print(f"[send_email] TLS started, logging in as {self.sender_email}")
-                server.login(self.sender_email, self.sender_password)
-                print(f"[send_email] Logged in successfully")
-                server.send_message(msg)
-                print(f"[send_email] Message sent successfully")
+            print(f"[send_email] Sending via Brevo API")
+            # Send email
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
             
-            print(f"✅ Email sent to {recipient_email}")
-            return True
-        except socket.timeout:
-            print(f"❌ SMTP timeout while sending email to {recipient_email}")
-            return False
-        except smtplib.SMTPException as e:
-            print(f"❌ SMTP error sending email to {recipient_email}: {str(e)}")
-            return False
+            if 200 <= response.status_code < 300:
+                print(f"✅ Email sent to {recipient_email} (Status: {response.status_code})")
+                return True
+            else:
+                print(f"❌ Brevo error: Status {response.status_code}")
+                print(f"   Response: {response.text}")
+                return False
+                
         except Exception as e:
             print(f"❌ Error sending email to {recipient_email}: {str(e)}")
             import traceback
