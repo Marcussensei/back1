@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/services/order_service.dart';
+import '../../core/services/location_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OrderTrackingPage extends StatefulWidget {
   final int orderId;
@@ -25,6 +27,8 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
   bool _isLoading = true;
   String _errorMessage = '';
   Map<String, dynamic>? _agentLocation;
+  late LocationService _locationService;
+  int? _clientId;
 
   // Default location (Lomé, Togo)
   static const LatLng _defaultLocation = LatLng(6.1725, 1.2314);
@@ -32,6 +36,24 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
   @override
   void initState() {
     super.initState();
+    _locationService = LocationService();
+    _initializeTracking();
+  }
+
+  Future<void> _initializeTracking() async {
+    // Récupérer l'ID du client depuis SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final clientId = prefs.getInt('client_id');
+
+    if (clientId != null) {
+      setState(() => _clientId = clientId);
+      // Démarrer le suivi de position
+      _locationService.startLocationTracking(clientId);
+      debugPrint('✅ Suivi de position démarré pour le client $clientId');
+    } else {
+      debugPrint('⚠️ ID client non trouvé');
+    }
+
     _loadAgentLocation();
   }
 
@@ -322,5 +344,13 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
               ],
             ),
     );
+  }
+
+  @override
+  void dispose() {
+    // Arrêter le suivi de position quand la page est fermée
+    _locationService.stopLocationTracking();
+    _mapController?.dispose();
+    super.dispose();
   }
 }

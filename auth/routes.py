@@ -242,10 +242,28 @@ class Login(Resource):
             (email, password)
         )
         user = cur.fetchone()
-        conn.close()
 
         if not user:
+            conn.close()
             auth_ns.abort(401, "Identifiants incorrects")
+
+        # Récupérer le client_id si l'utilisateur est un client
+        client_id = None
+        if user["role"] == "client":
+            cur.execute("SELECT id FROM clients WHERE user_id = %s", (user["id"],))
+            client_result = cur.fetchone()
+            if client_result:
+                client_id = client_result["id"]
+        
+        # Récupérer l'agent_id si l'utilisateur est un agent
+        agent_id = None
+        if user["role"] == "agent":
+            cur.execute("SELECT id FROM agents WHERE user_id = %s", (user["id"],))
+            agent_result = cur.fetchone()
+            if agent_result:
+                agent_id = agent_result["id"]
+
+        conn.close()
 
         token = create_access_token(
             identity=str(user["id"]),
@@ -253,12 +271,20 @@ class Login(Resource):
         )
 
         # Créer une réponse avec le token en HTTP-only cookie ET dans le JSON
-        response = make_response({
+        response_data = {
             "message": "Connecté avec succès",
             "role": user["role"],
             "access_token": token,
             "user_id": user["id"]
-        })
+        }
+        
+        # Ajouter client_id ou agent_id si applicable
+        if client_id:
+            response_data["client_id"] = client_id
+        if agent_id:
+            response_data["agent_id"] = agent_id
+
+        response = make_response(response_data)
         
         # Définir le cookie HTTP-only (sécurisé)
         # Pour cross-domain (localhost:8080 → render.com), besoin de samesite='None'

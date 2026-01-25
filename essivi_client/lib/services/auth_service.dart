@@ -6,6 +6,7 @@ class ClientAuthService {
   static const String _tokenKey = 'auth_token';
   static const String _emailKey = 'auth_email';
   static const String _userKey = 'auth_user';
+  static const String _clientIdKey = 'client_id';
 
   /// Vérifier si authentifié
   static Future<bool> isAuthenticated() async {
@@ -25,10 +26,18 @@ class ClientAuthService {
         password: password,
       );
 
-      // Sauvegarder token et email
+      // Sauvegarder token, email et client_id
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_tokenKey, result['access_token'] ?? '');
       await prefs.setString(_emailKey, email);
+
+      // Sauvegarder le client_id s'il est fourni
+      if (result['client_id'] != null) {
+        await prefs.setInt(_clientIdKey, result['client_id'] as int);
+        print(
+          '✅ [ClientAuthService] client_id sauvegardé: ${result['client_id']}',
+        );
+      }
 
       return result;
     } catch (e) {
@@ -53,10 +62,18 @@ class ClientAuthService {
         address: address,
       );
 
-      // Sauvegarder token et email
+      // Sauvegarder token, email et client_id
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_tokenKey, result['access_token'] ?? '');
       await prefs.setString(_emailKey, email);
+
+      // Sauvegarder le client_id s'il est fourni
+      if (result['client_id'] != null) {
+        await prefs.setInt(_clientIdKey, result['client_id'] as int);
+        print(
+          '✅ [ClientAuthService] client_id sauvegardé lors du register: ${result['client_id']}',
+        );
+      }
 
       return result;
     } catch (e) {
@@ -73,6 +90,7 @@ class ClientAuthService {
       await prefs.remove(_tokenKey);
       await prefs.remove(_emailKey);
       await prefs.remove(_userKey);
+      await prefs.remove(_clientIdKey);
     }
   }
 
