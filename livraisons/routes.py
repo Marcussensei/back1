@@ -594,6 +594,10 @@ class NotificationsHistory(Resource):
         finally:
             conn.close()
 
+    def options(self, livraison_id):
+        """Gérer les requêtes OPTIONS pour CORS"""
+        return {}, 200
+
 
 @livraisons_ns.route("/<int:livraison_id>/tracking-history")
 class TrackingHistory(Resource):
@@ -696,6 +700,10 @@ class TrackingHistory(Resource):
         finally:
             conn.close()
 
+    def options(self, livraison_id):
+        """Gérer les requêtes OPTIONS pour CORS"""
+        return {}, 200
+
 
 notify_model = livraisons_ns.model("NotifyClient", {
     "type": fields.String(required=True, enum=["sms", "whatsapp", "email"]),
@@ -779,3 +787,7 @@ class NotifyClient(Resource):
             return {"error": f"Erreur serveur: {str(e)}"}, 500
         finally:
             conn.close()
+
+    def options(self, livraison_id):
+        """Gérer les requêtes OPTIONS pour CORS"""
+        return {}, 200
