@@ -65,10 +65,13 @@ class LivraisonsList(Resource):
     @jwt_required()
     def get(self):
         """Récupérer la liste de toutes les livraisons avec filtres"""
-        conn = get_connection()
-        cur = conn.cursor()
-        
+        conn = None
         try:
+            conn = get_connection()
+            cur = conn.cursor()
+            
+            print("[LivraisonsList GET] Starting request")
+            
             # Récupérer les paramètres de filtrage
             agent_id = request.args.get("agent_id", type=int)
             client_id = request.args.get("client_id", type=int)
@@ -80,19 +83,19 @@ class LivraisonsList(Resource):
             page = request.args.get("page", default=1, type=int)
             per_page = request.args.get("per_page", default=100, type=int)
             
+            print(f"[LivraisonsList GET] Params: agent_id={agent_id}, client_id={client_id}, statut={statut}, page={page}, per_page={per_page}")
+            
             # Construire la requête dynamiquement
             query = """
                 SELECT
                     l.id,
                     l.commande_id,
                     l.agent_id,
-                    c.id as client_id,
+                    l.client_id,
                     l.quantite,
                     l.montant_percu,
                     l.latitude_gps,
                     l.longitude_gps,
-                    cmd.latitude as order_latitude,
-                    cmd.longitude as order_longitude,
                     l.adresse_livraison,
                     l.photo_lieu,
                     l.signature_client,
@@ -105,7 +108,10 @@ class LivraisonsList(Resource):
                     a.tricycle,
                     c.nom_point_vente,
                     c.responsable,
-                    c.telephone as client_telephone
+                    c.telephone as client_telephone,
+                    cmd.latitude as order_latitude,
+                    cmd.longitude as order_longitude,
+                    cmd.montant_total
                 FROM livraisons l
                 LEFT JOIN agents a ON l.agent_id = a.id
                 LEFT JOIN clients c ON l.client_id = c.id
@@ -138,65 +144,75 @@ class LivraisonsList(Resource):
                 params.append(montant_max)
             
             # Compter le total
-            count_query = """
-                SELECT COUNT(*) as total
-                FROM livraisons l
-                LEFT JOIN agents a ON l.agent_id = a.id
-                LEFT JOIN clients c ON l.client_id = c.id
-                LEFT JOIN commandes cmd ON l.commande_id = cmd.id
-                WHERE 1=1
-            """
-
+            count_query = "SELECT COUNT(*) as total FROM livraisons l WHERE 1=1"
+            count_params = []
+            
             if agent_id:
                 count_query += " AND l.agent_id = %s"
+                count_params.append(agent_id)
             if client_id:
                 count_query += " AND l.client_id = %s"
+                count_params.append(client_id)
             if statut:
                 count_query += " AND l.statut = %s"
+                count_params.append(statut)
             if date_debut:
                 count_query += " AND DATE(l.date_livraison) >= %s"
+                count_params.append(date_debut)
             if date_fin:
                 count_query += " AND DATE(l.date_livraison) <= %s"
+                count_params.append(date_fin)
             if montant_min is not None:
                 count_query += " AND l.montant_percu >= %s"
+                count_params.append(montant_min)
             if montant_max is not None:
                 count_query += " AND l.montant_percu <= %s"
-            cur.execute(count_query, params)
+                count_params.append(montant_max)
+            
+            print(f"[LivraisonsList GET] Executing count query: {count_query}")
+            cur.execute(count_query, count_params)
             count_result = cur.fetchone()
+            print(f"[LivraisonsList GET] Count result: {count_result}")
             
             # Safe extraction of total count
-            if count_result is None:
-                print("[LivraisonsList] count_result is None")
-                print(f"[LivraisonsList] count_query: {count_query}")
-                print(f"[LivraisonsList] params: {params}")
-                total = 0
-            else:
-                total = count_result.get("total") if isinstance(count_result, dict) else count_result[0]
-                if total is None:
-                    total = 0
+            total = 0
+            if count_result:
+                if isinstance(count_result, dict):
+                    total = count_result.get("total", 0) or 0
+                else:
+                    total = count_result[0] or 0
+            
+            print(f"[LivraisonsList GET] Total count: {total}")
             
             # Ajouter pagination et tri
             query += " ORDER BY l.created_at DESC LIMIT %s OFFSET %s"
             params.append(per_page)
             params.append((page - 1) * per_page)
             
+            print(f"[LivraisonsList GET] Executing data query with params count: {len(params)}")
             cur.execute(query, params)
             livraisons = cur.fetchall()
             
+            print(f"[LivraisonsList GET] Found {len(livraisons)} livraisons")
+            
+            # Convert and return
+            converted_livraisons = convert_decimal(livraisons) if livraisons else []
+            
             return {
-                "livraisons": convert_decimal(livraisons),
+                "livraisons": converted_livraisons,
                 "total": total,
                 "page": page,
                 "per_page": per_page,
-                "total_pages": (total + per_page - 1) // per_page
+                "total_pages": (total + per_page - 1) // per_page if total > 0 else 0
             }, 200
             
         except Exception as e:
             print("[LivraisonsList GET] Exception occurred:")
             print(traceback.format_exc())
-            return {"error": f"Erreur serveur: {str(e)}"}, 500
+            return {"error": f"Erreur serveur: {str(e)}", "type": type(e).__name__}, 500
         finally:
-            conn.close()
+            if conn:
+                conn.close()
     
     @livraisons_ns.doc(security="BearerAuth")
     @livraisons_ns.expect(create_livraison_model)
