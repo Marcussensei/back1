@@ -21,8 +21,8 @@ class NotificationService:
 
     def __init__(self):
         self.resend_api_key = os.getenv("RESEND_API_KEY")
-        self.sender_email = os.getenv("SENDER_EMAIL", "noreply@essivi.com")
-        self.sender_name = os.getenv("SENDER_NAME", "ESSIVI Notifications")
+        self.sender_email = os.getenv("SENDER_EMAIL", "onboarding@resend.dev")
+        self.sender_name = os.getenv("SENDER_NAME", "ESSIVIVI")
 
         if self.resend_api_key:
             print("[NotificationService] Resend initialized")
