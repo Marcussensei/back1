@@ -6,7 +6,6 @@ from werkzeug.exceptions import HTTPException
 from db import get_connection
 import psycopg2
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 
 agents_ns = Namespace(
     "agents",
