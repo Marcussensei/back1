@@ -212,6 +212,16 @@ export const deliveriesAPI = {
       method: "PUT",
       body: JSON.stringify({ agent_id: agentId }),
     }),
+
+  getNotificationHistory: (id: number) => apiRequest(`/livraisons/${id}/notifications-history`),
+
+  getTrackingHistory: (id: number) => apiRequest(`/livraisons/${id}/tracking-history`),
+
+  sendNotification: (id: number, data: any) =>
+    apiRequest(`/livraisons/${id}/notify`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 
 // Products APIs

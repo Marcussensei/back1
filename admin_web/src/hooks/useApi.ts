@@ -273,6 +273,32 @@ export const useDeliveryStatistics = (params?: Record<string, any>) => {
   });
 };
 
+export const useDeliveryNotificationHistory = (deliveryId: number) => {
+  return useQuery({
+    queryKey: ["deliveryNotifications", deliveryId],
+    queryFn: () => deliveriesAPI.getNotificationHistory(deliveryId),
+    enabled: !!deliveryId,
+  });
+};
+
+export const useDeliveryTrackingHistory = (deliveryId: number) => {
+  return useQuery({
+    queryKey: ["deliveryTracking", deliveryId],
+    queryFn: () => deliveriesAPI.getTrackingHistory(deliveryId),
+    enabled: !!deliveryId,
+  });
+};
+
+export const useSendDeliveryNotification = (deliveryId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => deliveriesAPI.sendNotification(deliveryId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deliveryNotifications", deliveryId] });
+    },
+  });
+};
+
 // Products Hooks
 export const useProducts = (params?: Record<string, any>) => {
   return useQuery({

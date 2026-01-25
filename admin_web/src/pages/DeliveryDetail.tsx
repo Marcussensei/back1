@@ -28,9 +28,11 @@ import {
 import { cn } from "@/lib/utils";
 import { deliveriesAPI } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useDeliveryTrackingHistory, useDeliveryNotificationHistory, useSendDeliveryNotification } from "@/hooks/useApi";
 import { SendNotificationModal, NotificationRecord } from "@/components/deliveries/SendNotificationModal";
 import { DeliveryMap } from "@/components/deliveries/DeliveryMap";
 import { NotificationHistory } from "@/components/deliveries/NotificationHistory";
+
 
 
 
@@ -66,55 +68,6 @@ interface TrackingStep {
   current: boolean;
 }
 
-const getTrackingSteps = (status: string): TrackingStep[] => {
-  const isCompleted = status === "completed";
-  const isInProgress = status === "in_progress";
-  const isPending = status === "pending";
-
-  return [
-    {
-      id: "1",
-      title: "Commande reçue",
-      description: "La commande a été enregistrée dans le système",
-      time: "08:00",
-      completed: true,
-      current: false,
-    },
-    {
-      id: "2",
-      title: "Agent assigné",
-      description: isPending ? "En attente d'assignation" : "Un livreur a été assigné à la commande",
-      time: isPending ? null : "08:30",
-      completed: !isPending,
-      current: isPending,
-    },
-    {
-      id: "3",
-      title: "En route",
-      description: isInProgress ? "Le livreur est en route vers la destination" : (isCompleted ? "Le livreur était en route" : "Le livreur partira bientôt"),
-      time: isInProgress || isCompleted ? "09:15" : null,
-      completed: isInProgress || isCompleted,
-      current: isInProgress,
-    },
-    {
-      id: "4",
-      title: "Arrivée sur place",
-      description: isCompleted ? "Le livreur est arrivé chez le client" : "Le livreur arrivera bientôt",
-      time: isCompleted ? "10:15" : null,
-      completed: isCompleted,
-      current: false,
-    },
-    {
-      id: "5",
-      title: "Livraison effectuée",
-      description: isCompleted ? "La livraison a été confirmée par le client" : "En attente de confirmation",
-      time: isCompleted ? "10:30" : null,
-      completed: isCompleted,
-      current: false,
-    },
-  ];
-};
-
 const DeliveryDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -123,26 +76,16 @@ const DeliveryDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationRecord[]>([
-    // Mock initial notifications
-    {
-      id: "notif-1",
-      type: "sms",
-      message: "Votre commande est en cours de préparation.",
-      sentAt: new Date(Date.now() - 3600000 * 2),
-      status: "delivered",
-    },
-    {
-      id: "notif-2",
-      type: "whatsapp",
-      message: "Bonjour, votre livreur Kofi est en route !",
-      sentAt: new Date(Date.now() - 3600000),
-      status: "delivered",
-    },
-  ]);
+  const [trackingSteps, setTrackingSteps] = useState<TrackingStep[]>([]);
+
+  // Fetch tracking history and notifications from API
+  const { data: trackingData, isLoading: trackingLoading } = useDeliveryTrackingHistory(delivery?.id || 0);
+  const { data: notificationsData, isLoading: notificationsLoading } = useDeliveryNotificationHistory(delivery?.id || 0);
+  const sendNotification = useSendDeliveryNotification(delivery?.id || 0);
 
   const handleNotificationSent = (notification: NotificationRecord) => {
-    setNotifications((prev) => [notification, ...prev]);
+    // Refetch notifications to show the newly sent one
+    // The hook will automatically update when the mutation succeeds
   };
 
   useEffect(() => {
@@ -178,9 +121,11 @@ const DeliveryDetail = () => {
           amount: data.montant_percu,
           date: data.date_livraison,
           time: data.heure_livraison,
-          status: data.statut === 'completed' ? 'completed' :
+          status: data.statut === 'livree' ? 'completed' :
+                  data.statut === 'completed' ? 'completed' :
                   data.statut === 'assigned' ? 'in_progress' :
-                  data.statut === 'en_cours' ? 'in_progress' : 'pending',
+                  data.statut === 'en_cours' ? 'in_progress' :
+                  data.statut === 'annulee' ? 'cancelled' : 'pending',
           lat: data.latitude_gps,
           lng: data.longitude_gps,
           notes: '', // No notes field in backend
@@ -198,6 +143,13 @@ const DeliveryDetail = () => {
 
     fetchDelivery();
   }, [id, user, authLoading]);
+
+  // Update tracking steps when tracking data changes
+  useEffect(() => {
+    if (trackingData?.tracking_steps) {
+      setTrackingSteps(trackingData.tracking_steps);
+    }
+  }, [trackingData]);
 
   if (loading) {
     return (
@@ -245,7 +197,6 @@ const DeliveryDetail = () => {
     );
   }
 
-  const trackingSteps = getTrackingSteps(delivery.status);
   const statusInfo = statusConfig[delivery.status as keyof typeof statusConfig];
 
   return (
@@ -305,69 +256,75 @@ const DeliveryDetail = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="relative">
-                {trackingSteps.map((step, index) => (
-                  <div key={step.id} className="flex gap-4 pb-8 last:pb-0">
-                    {/* Timeline Line */}
-                    <div className="flex flex-col items-center">
-                      <div
-                        className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
-                          step.completed
-                            ? "bg-success text-success-foreground"
-                            : step.current
-                            ? "bg-primary text-primary-foreground animate-pulse"
-                            : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {step.completed ? (
-                          <CheckCircle2 className="w-5 h-5" />
-                        ) : (
-                          <Circle className="w-5 h-5" />
-                        )}
-                      </div>
-                      {index < trackingSteps.length - 1 && (
+              {trackingLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <div className="relative">
+                  {trackingSteps.map((step, index) => (
+                    <div key={step.id} className="flex gap-4 pb-8 last:pb-0">
+                      {/* Timeline Line */}
+                      <div className="flex flex-col items-center">
                         <div
                           className={cn(
-                            "w-0.5 flex-1 mt-2 transition-all duration-300",
-                            step.completed ? "bg-success" : "bg-muted"
-                          )}
-                        />
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 pb-2">
-                      <div className="flex items-center justify-between">
-                        <h4
-                          className={cn(
-                            "font-medium",
-                            step.current && "text-primary"
+                            "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
+                            step.completed
+                              ? "bg-success text-success-foreground"
+                              : step.current
+                              ? "bg-primary text-primary-foreground animate-pulse"
+                              : "bg-muted text-muted-foreground"
                           )}
                         >
-                          {step.title}
-                        </h4>
-                        {step.time && (
-                          <span className="text-sm text-muted-foreground">
-                            {step.time}
-                          </span>
+                          {step.completed ? (
+                            <CheckCircle2 className="w-5 h-5" />
+                          ) : (
+                            <Circle className="w-5 h-5" />
+                          )}
+                        </div>
+                        {index < trackingSteps.length - 1 && (
+                          <div
+                            className={cn(
+                              "w-0.5 flex-1 mt-2 transition-all duration-300",
+                              step.completed ? "bg-success" : "bg-muted"
+                            )}
+                          />
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {step.description}
-                      </p>
-                      {step.current && (
-                        <div className="mt-3 flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                          <span className="text-xs text-primary font-medium">
-                            En cours...
-                          </span>
+
+                      {/* Content */}
+                      <div className="flex-1 pb-2">
+                        <div className="flex items-center justify-between">
+                          <h4
+                            className={cn(
+                              "font-medium",
+                              step.current && "text-primary"
+                            )}
+                          >
+                            {step.title}
+                          </h4>
+                          {step.time && (
+                            <span className="text-sm text-muted-foreground">
+                              {step.time}
+                            </span>
+                          )}
                         </div>
-                      )}
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {step.description}
+                        </p>
+                        {step.current && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                            <span className="text-xs text-primary font-medium">
+                              En cours...
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -557,7 +514,21 @@ const DeliveryDetail = () => {
           </Card>
 
           {/* Notification History */}
-          <NotificationHistory notifications={notifications} />
+          {notificationsLoading ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                  Historique des notifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+              </CardContent>
+            </Card>
+          ) : (
+            <NotificationHistory notifications={notificationsData?.notifications || []} />
+          )}
         </div>
       </div>
 

@@ -539,3 +539,243 @@ class ToursAPI(Resource):
         """Récupérer la liste des tournées (déprécié: utiliser /tours)"""
         # Cet endpoint est déprécié, utiliser GET /tours à la place
         return {"message": "Endpoint déprécié. Utiliser GET /tours à la place"}, 410
+
+
+@livraisons_ns.route("/<int:livraison_id>/notifications-history")
+class NotificationsHistory(Resource):
+    @livraisons_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self, livraison_id):
+        """Récupérer l'historique des notifications d'une livraison"""
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            # Vérifier que la livraison existe
+            cur.execute("SELECT id FROM livraisons WHERE id = %s", (livraison_id,))
+            if not cur.fetchone():
+                return {"error": "Livraison non trouvée"}, 404
+            
+            # Récupérer les notifications associées à cette livraison
+            cur.execute("""
+                SELECT
+                    n.id,
+                    n.utilisateur_id,
+                    n.contenu as message,
+                    n.type,
+                    n.date_creation as sentAt,
+                    n.est_lue as status
+                FROM notifications n
+                WHERE n.contenu LIKE CONCAT('%', %s, '%')
+                ORDER BY n.date_creation DESC
+                LIMIT 50
+            """, (f"livraison {livraison_id}",))
+            
+            notifications = cur.fetchall()
+            
+            # Mapper les notifications au format frontend
+            mapped_notifications = []
+            for notif in notifications:
+                mapped_notifications.append({
+                    "id": str(notif["id"]),
+                    "type": notif["type"] or "sms",
+                    "message": notif["message"],
+                    "sentAt": notif["sentAt"].isoformat() if notif["sentAt"] else None,
+                    "status": "delivered" if notif["status"] else "pending"
+                })
+            
+            return {
+                "notifications": mapped_notifications,
+                "total": len(mapped_notifications)
+            }, 200
+            
+        except Exception as e:
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+
+
+@livraisons_ns.route("/<int:livraison_id>/tracking-history")
+class TrackingHistory(Resource):
+    @livraisons_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self, livraison_id):
+        """Récupérer l'historique de suivi d'une livraison"""
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            # Récupérer la livraison et ses informations d'état
+            cur.execute("""
+                SELECT
+                    l.id,
+                    l.statut,
+                    l.date_livraison,
+                    l.heure_livraison,
+                    l.created_at,
+                    l.updated_at,
+                    a.nom as agent_nom,
+                    c.nom_point_vente as client_name
+                FROM livraisons l
+                LEFT JOIN agents a ON l.agent_id = a.id
+                LEFT JOIN clients c ON l.client_id = c.id
+                WHERE l.id = %s
+            """, (livraison_id,))
+            
+            livraison = cur.fetchone()
+            
+            if not livraison:
+                return {"error": "Livraison non trouvée"}, 404
+            
+            # Construire l'historique de suivi basé sur l'état actuel
+            tracking_steps = []
+            
+            # Étape 1: Commande reçue
+            tracking_steps.append({
+                "id": "1",
+                "title": "Commande reçue",
+                "description": "La commande a été enregistrée dans le système",
+                "time": livraison["created_at"].strftime("%H:%M") if livraison["created_at"] else None,
+                "completed": True,
+                "current": False
+            })
+            
+            # Étape 2: Agent assigné
+            is_pending = livraison["statut"] in ["en_attente", "pending"]
+            is_in_progress = livraison["statut"] in ["en_cours", "assigned"]
+            is_completed = livraison["statut"] in ["livree", "completed"]
+            
+            tracking_steps.append({
+                "id": "2",
+                "title": "Agent assigné",
+                "description": "En attente d'assignation" if is_pending else "Un livreur a été assigné à la commande",
+                "time": None if is_pending else (livraison["updated_at"].strftime("%H:%M") if livraison["updated_at"] else None),
+                "completed": not is_pending,
+                "current": is_pending
+            })
+            
+            # Étape 3: En route
+            tracking_steps.append({
+                "id": "3",
+                "title": "En route",
+                "description": "Le livreur est en route vers la destination" if is_in_progress or is_completed else "Le livreur partira bientôt",
+                "time": None if not (is_in_progress or is_completed) else (livraison["heure_livraison"] if livraison["heure_livraison"] else None),
+                "completed": is_in_progress or is_completed,
+                "current": is_in_progress and not is_completed
+            })
+            
+            # Étape 4: Arrivée sur place
+            tracking_steps.append({
+                "id": "4",
+                "title": "Arrivée sur place",
+                "description": "Le livreur est arrivé chez le client" if is_completed else "Le livreur arrivera bientôt",
+                "time": None if not is_completed else (livraison["updated_at"].strftime("%H:%M") if livraison["updated_at"] else None),
+                "completed": is_completed,
+                "current": False
+            })
+            
+            # Étape 5: Livraison effectuée
+            tracking_steps.append({
+                "id": "5",
+                "title": "Livraison effectuée",
+                "description": "La livraison a été confirmée par le client" if is_completed else "En attente de confirmation",
+                "time": None if not is_completed else (livraison["updated_at"].strftime("%H:%M") if livraison["updated_at"] else None),
+                "completed": is_completed,
+                "current": False
+            })
+            
+            return {
+                "tracking_steps": tracking_steps,
+                "current_status": livraison["statut"],
+                "agent_name": livraison["agent_nom"],
+                "client_name": livraison["client_name"]
+            }, 200
+            
+        except Exception as e:
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+
+
+notify_model = livraisons_ns.model("NotifyClient", {
+    "type": fields.String(required=True, enum=["sms", "whatsapp", "email"]),
+    "message": fields.String(required=True),
+})
+
+
+@livraisons_ns.route("/<int:livraison_id>/notify")
+class NotifyClient(Resource):
+    @livraisons_ns.doc(security="BearerAuth")
+    @livraisons_ns.expect(notify_model)
+    @jwt_required()
+    def post(self, livraison_id):
+        """Envoyer une notification au client pour une livraison"""
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            data = request.get_json()
+            notification_type = data.get("type", "sms")
+            message = data.get("message")
+            
+            if not message:
+                return {"error": "Message est requis"}, 400
+            
+            # Récupérer les détails de la livraison et du client
+            cur.execute("""
+                SELECT
+                    l.id,
+                    l.client_id,
+                    c.telephone as client_phone,
+                    u.email as client_email,
+                    u.nom as client_name,
+                    a.nom as agent_name,
+                    l.adresse_livraison
+                FROM livraisons l
+                LEFT JOIN clients c ON l.client_id = c.id
+                LEFT JOIN users u ON c.user_id = u.id
+                LEFT JOIN agents a ON l.agent_id = a.id
+                WHERE l.id = %s
+            """, (livraison_id,))
+            
+            livraison = cur.fetchone()
+            
+            if not livraison:
+                return {"error": "Livraison non trouvée"}, 404
+            
+            # Créer la notification dans la base de données
+            cur.execute("""
+                INSERT INTO notifications (
+                    utilisateur_id, contenu, type, date_creation, est_lue
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s
+                )
+                RETURNING id, date_creation
+            """, (
+                livraison["client_id"],
+                f"Livraison {livraison_id}: {message}",
+                notification_type,
+                datetime.now(),
+                False
+            ))
+            
+            result = cur.fetchone()
+            conn.commit()
+            
+            # Envoyer la notification via le service de notifications (futur)
+            # Pour l'instant, on enregistre juste la notification
+            
+            return {
+                "message": "Notification envoyée avec succès",
+                "notification_id": result["id"],
+                "sent_at": result["date_creation"].isoformat(),
+                "type": notification_type,
+                "recipient": livraison["client_name"]
+            }, 201
+            
+        except Exception as e:
+            conn.rollback()
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
