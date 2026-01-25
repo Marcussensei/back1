@@ -1,30 +1,25 @@
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://essivivi-project.onrender.coms";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://essivivi-project.onrender.com";
 
 // API request helper
 const apiRequest = async (
   endpoint: string,
   options: RequestInit = {}
 ) => {
-  const token = localStorage.getItem('token');
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...options.headers,
   };
 
-  if (token) {
-    headers['Authorization'] = token;
-  }
-
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: 'include', // Envoyer automatiquement le cookie HTTP-only
   });
 
   if (!response.ok) {
     if (response.status === 401) {
       // Non autorisé, rediriger vers la connexion
-      localStorage.removeItem('token');
       window.location.href = "/auth";
     }
     throw new Error(`API Error: ${response.statusText}`);

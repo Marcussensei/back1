@@ -59,7 +59,7 @@ CORS(
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "Accept"],
     expose_headers=["Content-Type"],
-    origins=allowed_origins,
+    origins="*",
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     max_age=3600
 )

@@ -16,30 +16,20 @@ const Auth = () => {
   // Vérifier si l'utilisateur est déjà connecté
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setIsChecking(false);
-        return;
-      }
-
       try {
         const response = await fetch('https://essivivi-project.onrender.com/auth/me', {
           headers: {
             'accept': 'application/json',
-            'Authorization': token,
           },
+          credentials: 'include',
         });
 
         if (response.ok) {
           // L'utilisateur est déjà connecté, rediriger vers le dashboard
           navigate('/', { replace: true });
-        } else {
-          // Token invalide, supprimer
-          localStorage.removeItem('token');
         }
       } catch (error) {
         // Pas connecté, c'est normal
-        localStorage.removeItem('token');
       } finally {
         setIsChecking(false);
       }
@@ -74,6 +64,7 @@ const Auth = () => {
           'Content-Type': 'application/json',
           'accept': 'application/json',
         },
+        credentials: 'include', // Important: envoyer les cookies
         body: JSON.stringify({
           email,
           password,
@@ -81,7 +72,7 @@ const Auth = () => {
       });
 
       console.log('[AUTH] Réponse reçue - Status:', response.status, 'OK:', response.ok);
-
+      
       if (!response.ok) {
         let errorMessage = `Erreur: ${response.status}`;
         try {
@@ -98,11 +89,8 @@ const Auth = () => {
 
       const data = await response.json();
       console.log('[AUTH] Login succès - data:', data);
-      console.log('[AUTH] Sauvegarde du token et redirection');
-
-      // Sauvegarder le token
-      localStorage.setItem('token', data.access_token);
-
+      console.log('[AUTH] Redirection vers / via navigate()');
+      
       // Rediriger via React Router
       navigate('/', { replace: true });
     } catch (error) {
@@ -130,7 +118,7 @@ const Auth = () => {
           <div className="absolute top-20 left-10 w-72 h-72 bg-white/20 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/30 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
-
+        
         <div className="relative z-10 flex flex-col justify-between p-12 text-white">
           {/* Logo */}
           <div className="flex items-center gap-3">
@@ -152,7 +140,7 @@ const Auth = () => {
             <p className="text-lg text-white/80 max-w-md">
               Plateforme de gestion complète pour suivre vos agents, clients et livraisons en temps réel.
             </p>
-
+            
             <div className="flex items-center gap-6 pt-4">
               <div className="text-center">
                 <p className="text-3xl font-bold">500+</p>
