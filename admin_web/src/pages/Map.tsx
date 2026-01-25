@@ -39,6 +39,7 @@ const Map = () => {
   const markersRef = useRef<L.Marker[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
   const [deliveries, setDeliveries] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -76,6 +77,21 @@ const Map = () => {
         // Extract livraisons array from the response
         const livraisons = deliveriesData.livraisons || deliveriesData.data || [];
         setDeliveries(livraisons);
+      }
+
+      // Fetch clients with geo coordinates
+      const clientsRes = await fetch('https://essivivi-project.onrender.com/cartographie/clients/geo', {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (clientsRes.ok) {
+        const clientsData = await clientsRes.json();
+        const clientsList = clientsData.data || [];
+        setClients(clientsList);
       }
 
       setLastUpdate(new Date());
@@ -125,6 +141,55 @@ const Map = () => {
     // Clear previous markers
     markersRef.current.forEach(marker => map.removeLayer(marker));
     markersRef.current = [];
+
+    // Add markers for clients (ground positions)
+    clients.forEach((client) => {
+      const lat = client.latitude;
+      const lng = client.longitude;
+      
+      if (lat && lng) {
+        const clientIcon = L.divIcon({
+          className: "custom-marker",
+          html: `
+            <div style="
+              background-color: #8b5cf6;
+              width: 28px;
+              height: 28px;
+              border-radius: 50%;
+              border: 2px solid white;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"/>
+                <path d="M9 10h6"/>
+                <path d="M9 14h6"/>
+              </svg>
+            </div>
+          `,
+          iconSize: [28, 28],
+          iconAnchor: [14, 28],
+        });
+
+        const marker = L.marker([lat, lng], { icon: clientIcon }).addTo(map);
+        markersRef.current.push(marker);
+        
+        marker.bindPopup(`
+          <div style="min-width: 200px; padding: 8px;">
+            <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #8b5cf6;">Client</div>
+            <div style="font-weight: 600; font-size: 12px; margin-bottom: 6px;">${client.nom_point_vente || 'N/A'}</div>
+            ${client.responsable ? `<div style="font-size: 11px; color: #666; margin-bottom: 3px;">Responsable: ${client.responsable}</div>` : ''}
+            ${client.telephone ? `<div style="font-size: 11px; color: #666; margin-bottom: 3px;">Tél: ${client.telephone}</div>` : ''}
+            ${client.adresse ? `<div style="font-size: 11px; color: #666; margin-bottom: 3px;">Adresse: ${client.adresse}</div>` : ''}
+            <div style="font-size: 10px; color: #999; margin-top: 4px; font-family: monospace;">
+              ${client.latitude?.toFixed(4)}, ${client.longitude?.toFixed(4)}
+            </div>
+          </div>
+        `);
+      }
+    });
 
     // Add markers for each delivery (livraisons)
     deliveries.forEach((delivery) => {
@@ -266,7 +331,7 @@ const Map = () => {
         mapInstanceRef.current = null;
       }
     };
-  }, [agents, deliveries, loading]);
+  }, [agents, deliveries, clients, loading]);
 
   const stats = {
     totalDeliveries: deliveries.length,
@@ -274,6 +339,7 @@ const Map = () => {
     inTransit: deliveries.filter((d) => d.statut === "en_cours").length,
     pending: deliveries.filter((d) => d.statut === "en_attente").length,
     problems: deliveries.filter((d) => d.statut === "probleme").length,
+    totalClients: clients.length,
     totalAgents: agents.length,
     activeAgents: agents.filter((a) => a.statut === "actif" || a.actif === true).length,
     agentsWithLocation: agents.filter((a) => a.latitude && a.longitude).length,
@@ -285,7 +351,7 @@ const Map = () => {
       subtitle="Visualisez les positions des agents et livraisons en temps réel"
     >
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
         <Card className="p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Package className="w-5 h-5 text-primary" />
@@ -293,6 +359,15 @@ const Map = () => {
           <div>
             <p className="text-2xl font-heading font-bold">{stats.totalDeliveries}</p>
             <p className="text-xs text-muted-foreground">Total livraisons</p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+            <Users className="w-5 h-5 text-purple-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-heading font-bold text-purple-500">{stats.totalClients}</p>
+            <p className="text-xs text-muted-foreground">Total clients</p>
           </div>
         </Card>
         <Card className="p-4 flex items-center gap-3">
@@ -344,6 +419,10 @@ const Map = () => {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded-full bg-purple-500" />
+          <span className="text-sm text-muted-foreground">Client</span>
+        </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded-full bg-success" />
           <span className="text-sm text-muted-foreground">Livrée</span>

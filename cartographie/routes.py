@@ -204,9 +204,19 @@ class ClientsGeo(Resource):
             cur.execute(query, params)
             clients = cur.fetchall()
             
-            return {"data": convert_decimal(clients)}, 200
+            # Convert results to ensure decimals are converted to float
+            clients_data = []
+            if clients:
+                for client in clients:
+                    client_dict = dict(client) if hasattr(client, 'keys') else client
+                    clients_data.append(convert_decimal(client_dict))
+            
+            return {"data": clients_data}, 200
             
         except Exception as e:
+            # Log full stack trace to server logs for debugging
+            print("[cartographie/ClientsGeo] Exception:")
+            print(traceback.format_exc())
             return {"error": f"Erreur serveur: {str(e)}"}, 500
         finally:
             conn.close()
