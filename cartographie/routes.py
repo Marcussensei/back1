@@ -299,6 +299,99 @@ class CouvertureZones(Resource):
             conn.close()
 
 
+@carto_ns.route("/clients/<int:client_id>/localiser")
+class LocaliserClient(Resource):
+    @carto_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self, client_id):
+        """Récupérer la position actuelle d'un client"""
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            cur.execute("""
+                SELECT
+                    id,
+                    nom_point_vente,
+                    responsable,
+                    telephone,
+                    latitude,
+                    longitude
+                FROM clients
+                WHERE id = %s
+            """, (client_id,))
+            
+            client = cur.fetchone()
+            
+            if not client:
+                return {"error": "Client non trouvé"}, 404
+            
+            return convert_decimal(client), 200
+            
+        except Exception as e:
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+    
+    @carto_ns.doc(security="BearerAuth")
+    @carto_ns.expect(localisation_model)
+    @jwt_required()
+    def put(self, client_id):
+        """Mettre à jour la position GPS d'un client"""
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        user_role = claims.get("role")
+        
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        try:
+            data = request.get_json()
+            
+            # Vérifier que le client modifie sa propre position ou qu'il est admin
+            if user_role == "client":
+                cur.execute("SELECT id FROM clients WHERE user_id = %s", (user_id,))
+                client = cur.fetchone()
+                if not client or client["id"] != client_id:
+                    return {"error": "Accès non autorisé"}, 403
+            
+            cur.execute("""
+                UPDATE clients
+                SET latitude = %s, longitude = %s
+                WHERE id = %s
+                RETURNING id, latitude, longitude
+            """, (
+                data.get("latitude"),
+                data.get("longitude"),
+                client_id
+            ))
+            
+            result = cur.fetchone()
+            
+            if not result:
+                return {"error": "Client non trouvé"}, 404
+            
+            conn.commit()
+            
+            return {
+                "message": "Position mise à jour",
+                "client_id": result["id"],
+                "latitude": result["latitude"],
+                "longitude": result["longitude"],
+                "updated_at": datetime.now().isoformat()
+            }, 200
+            
+        except Exception as e:
+            conn.rollback()
+            return {"error": f"Erreur serveur: {str(e)}"}, 500
+        finally:
+            conn.close()
+
+    def options(self, client_id):
+        """Gérer les requêtes OPTIONS pour CORS"""
+        return {}, 200
+
+
 @carto_ns.route("/proximite")
 class ProximiteAgentClient(Resource):
     @carto_ns.doc(security="BearerAuth")

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   agentsAPI,
@@ -400,4 +401,102 @@ export const useCustomReport = (dateDebut: string, dateFin: string) => {
     queryFn: () => statisticsAPI.getCustomReport(dateDebut, dateFin),
     enabled: !!dateDebut && !!dateFin,
   });
+};
+// Location Hooks
+export const useUpdateAgentLocation = (agentId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ latitude, longitude }: { latitude: number; longitude: number }) =>
+      agentsAPI.updateLocation(agentId, latitude, longitude),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agentLocations"] });
+    },
+  });
+};
+
+export const useUpdateClientLocation = (clientId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ latitude, longitude }: { latitude: number; longitude: number }) =>
+      clientsAPI.updateLocation(clientId, latitude, longitude),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clientLocations"] });
+    },
+  });
+};
+
+// Hook pour mettre à jour la position toutes les 30 secondes
+export const useLocationTracking = (
+  entityType: "agent" | "client",
+  entityId: number,
+  getPosition: () => Promise<{ latitude: number; longitude: number } | null>
+) => {
+  const updateAgentLocation = useUpdateAgentLocation(entityId);
+  const updateClientLocation = useUpdateClientLocation(entityId);
+
+  const updateFn = entityType === "agent" ? updateAgentLocation : updateClientLocation;
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const startTracking = async () => {
+      intervalId = setInterval(async () => {
+        try {
+          const position = await getPosition();
+          if (position) {
+            updateFn.mutate(position);
+          }
+        } catch (error) {
+          console.error("Erreur lors de la mise à jour de la position:", error);
+        }
+      }, 30000); // 30 secondes
+    };
+
+    if (entityId) {
+      startTracking();
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [entityId, updateFn]);
+
+  return updateFn;
+};
+
+// Hook pour obtenir la géolocalisation du navigateur
+export const useGeolocation = () => {
+  const [position, setPosition] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setError("La géolocalisation n'est pas supportée par ce navigateur");
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setPosition({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setError(null);
+      },
+      (error) => {
+        setError(error.message);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000, // Garder en cache 5 secondes max
+        timeout: 10000,
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  return { position, error };
 };

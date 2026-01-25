@@ -117,6 +117,14 @@ export const clientsAPI = {
 
   getGeoLocations: () => apiRequest("/cartographie/clients/geo"),
 
+  getLocation: (clientId: number) => apiRequest(`/cartographie/clients/${clientId}/localiser`),
+
+  updateLocation: (clientId: number, latitude: number, longitude: number) =>
+    apiRequest(`/cartographie/clients/${clientId}/localiser`, {
+      method: "PUT",
+      body: JSON.stringify({ latitude, longitude }),
+    }),
+
   getOrders: (clientId: number, params?: Record<string, any>) => {
     const combinedParams: Record<string, string> = { ...params, client_id: clientId.toString() };
     const query = new URLSearchParams(combinedParams).toString();
