@@ -1,7 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
-import 'auth_service.dart';
+import '../../services/api_service.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -10,6 +10,7 @@ class LocationService {
   static const String _baseUrl = 'https://essivivi-project.onrender.com';
   Timer? _locationTimer;
   bool _isTracking = false;
+  Function(double latitude, double longitude)? _onPositionUpdate;
 
   /// Vérifie et demande les permissions de localisation
   Future<bool> requestLocationPermission() async {
@@ -62,26 +63,26 @@ class LocationService {
 
   /// Met à jour la position du client sur le serveur
   Future<bool> updateClientLocation(
-    int clientId,
+    int orderId,
     double latitude,
     double longitude,
   ) async {
     try {
-      final authService = AuthService();
-      final token = await authService.getToken();
+      final token = ClientApiService.getToken();
 
       if (token == null) {
         _debugPrint('⚠️ Token non disponible');
         return false;
       }
 
-      final response = await http.put(
-        Uri.parse('$_baseUrl/cartographie/clients/$clientId/localiser'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'latitude': latitude, 'longitude': longitude}),
+      final response = await http.post(
+        Uri.parse('$_baseUrl/commandes/update-client-position'),
+        headers: {'Content-Type': 'application/json', 'Authorization': token},
+        body: jsonEncode({
+          'commande_id': orderId,
+          'latitude': latitude,
+          'longitude': longitude,
+        }),
       );
 
       if (response.statusCode == 200) {
@@ -98,22 +99,26 @@ class LocationService {
   }
 
   /// Démarre le suivi de position (mise à jour toutes les 30 secondes)
-  void startLocationTracking(int clientId) {
+  void startLocationTracking(
+    int orderId, {
+    Function(double latitude, double longitude)? onPositionUpdate,
+  }) {
     if (_isTracking) {
       _debugPrint('⚠️ Le suivi de position est déjà actif');
       return;
     }
 
+    _onPositionUpdate = onPositionUpdate;
     _isTracking = true;
     _debugPrint('🚀 Démarrage du suivi de position du client...');
 
     // Mise à jour immédiate
-    _updateAndSendLocation(clientId);
+    _updateAndSendLocation(orderId);
 
     // Mise à jour toutes les 30 secondes
     _locationTimer = Timer.periodic(
       const Duration(seconds: 30),
-      (_) => _updateAndSendLocation(clientId),
+      (_) => _updateAndSendLocation(orderId),
     );
   }
 
@@ -125,16 +130,19 @@ class LocationService {
   }
 
   /// Récupère et envoie la position
-  Future<void> _updateAndSendLocation(int clientId) async {
+  Future<void> _updateAndSendLocation(int orderId) async {
     try {
       final position = await getCurrentLocation();
 
       if (position != null) {
         await updateClientLocation(
-          clientId,
+          orderId,
           position.latitude,
           position.longitude,
         );
+
+        // Notify callback about position update
+        _onPositionUpdate?.call(position.latitude, position.longitude);
       }
     } catch (e) {
       _debugPrint('❌ Erreur lors de la mise à jour de la position: $e');

@@ -97,6 +97,7 @@ class OrderService {
           'latitude': data['latitude'],
           'longitude': data['longitude'],
           'lastLocationUpdate': data['lastLocationUpdate'],
+          'client_id': data['client_id'],
         };
       }
       return null;

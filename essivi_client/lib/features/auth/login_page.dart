@@ -34,12 +34,13 @@ class _LoginPageState extends State<LoginPage>
     _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
     _animationController.forward();
   }
 
@@ -130,11 +131,7 @@ class _LoginPageState extends State<LoginPage>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0EA5E9),
-              Color(0xFF0284C7),
-              Color(0xFF0369A1),
-            ],
+            colors: [Color(0xFF0EA5E9), Color(0xFF0284C7), Color(0xFF0369A1)],
           ),
         ),
         child: SafeArea(
@@ -244,9 +241,21 @@ class _LoginPageState extends State<LoginPage>
                           spacing: 32,
                           runSpacing: 16,
                           children: [
-                            _buildStat('24/7', 'Service disponible', Icons.access_time),
-                            _buildStat('Rapide', 'Livraison express', Icons.local_shipping),
-                            _buildStat('Qualité', 'Eau certifiée', Icons.verified),
+                            _buildStat(
+                              '24/7',
+                              'Service disponible',
+                              Icons.access_time,
+                            ),
+                            _buildStat(
+                              'Rapide',
+                              'Livraison express',
+                              Icons.local_shipping,
+                            ),
+                            _buildStat(
+                              'Qualité',
+                              'Eau certifiée',
+                              Icons.verified,
+                            ),
                           ],
                         ),
                       ],
@@ -257,10 +266,11 @@ class _LoginPageState extends State<LoginPage>
               Expanded(
                 flex: isLargeScreen ? 1 : 1,
                 child: Container(
-                  margin: isLargeScreen
-                      ? const EdgeInsets.all(48.0)
-                      : const EdgeInsets.all(24.0),
-                  padding: const EdgeInsets.all(36.0),
+                  margin: EdgeInsets.symmetric(
+                    horizontal: isLargeScreen ? 32.0 : 16.0,
+                    vertical: isLargeScreen ? 32.0 : 16.0,
+                  ),
+                  padding: EdgeInsets.all(isLargeScreen ? 32.0 : 24.0),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(28),
@@ -294,7 +304,9 @@ class _LoginPageState extends State<LoginPage>
                                         borderRadius: BorderRadius.circular(24),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFF0EA5E9).withOpacity(0.2),
+                                            color: const Color(
+                                              0xFF0EA5E9,
+                                            ).withOpacity(0.2),
                                             blurRadius: 20,
                                             offset: const Offset(0, 8),
                                           ),
@@ -305,23 +317,30 @@ class _LoginPageState extends State<LoginPage>
                                         child: Image.asset(
                                           'assets/images/logo.png',
                                           fit: BoxFit.contain,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Container(
-                                              decoration: const BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [
-                                                    Color(0xFF0EA5E9),
-                                                    Color(0xFF0284C7),
-                                                  ],
-                                                ),
-                                              ),
-                                              child: const Icon(
-                                                Icons.water_drop,
-                                                color: Colors.white,
-                                                size: 50,
-                                              ),
-                                            );
-                                          },
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        gradient:
+                                                            LinearGradient(
+                                                              colors: [
+                                                                Color(
+                                                                  0xFF0EA5E9,
+                                                                ),
+                                                                Color(
+                                                                  0xFF0284C7,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                      ),
+                                                  child: const Icon(
+                                                    Icons.water_drop,
+                                                    color: Colors.white,
+                                                    size: 50,
+                                                  ),
+                                                );
+                                              },
                                         ),
                                       ),
                                     ),
@@ -375,8 +394,12 @@ class _LoginPageState extends State<LoginPage>
                                       prefixIcon: Container(
                                         margin: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF0EA5E9).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
+                                          color: const Color(
+                                            0xFF0EA5E9,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         child: const Icon(
                                           Icons.email_outlined,
@@ -403,10 +426,11 @@ class _LoginPageState extends State<LoginPage>
                                       ),
                                       filled: true,
                                       fillColor: Colors.grey[50],
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 18,
-                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                            vertical: 18,
+                                          ),
                                     ),
                                     validator: _validateEmail,
                                     enabled: !_isLoading,
@@ -424,8 +448,12 @@ class _LoginPageState extends State<LoginPage>
                                       prefixIcon: Container(
                                         margin: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF0EA5E9).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
+                                          color: const Color(
+                                            0xFF0EA5E9,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         child: const Icon(
                                           Icons.lock_outline,
@@ -442,7 +470,8 @@ class _LoginPageState extends State<LoginPage>
                                         ),
                                         onPressed: () {
                                           setState(() {
-                                            _obscurePassword = !_obscurePassword;
+                                            _obscurePassword =
+                                                !_obscurePassword;
                                           });
                                         },
                                       ),
@@ -465,10 +494,11 @@ class _LoginPageState extends State<LoginPage>
                                       ),
                                       filled: true,
                                       fillColor: Colors.grey[50],
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 18,
-                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                            vertical: 18,
+                                          ),
                                     ),
                                     validator: _validatePassword,
                                     enabled: !_isLoading,
@@ -480,15 +510,23 @@ class _LoginPageState extends State<LoginPage>
                                     width: double.infinity,
                                     height: 60,
                                     child: ElevatedButton(
-                                      onPressed: _isLoading ? null : _handleLogin,
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _handleLogin,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF0EA5E9),
+                                        backgroundColor: const Color(
+                                          0xFF0EA5E9,
+                                        ),
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                         ),
                                         elevation: 0,
-                                        shadowColor: const Color(0xFF0EA5E9).withOpacity(0.4),
+                                        shadowColor: const Color(
+                                          0xFF0EA5E9,
+                                        ).withOpacity(0.4),
                                       ),
                                       child: _isLoading
                                           ? const SizedBox(
@@ -497,9 +535,9 @@ class _LoginPageState extends State<LoginPage>
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2.5,
                                                 valueColor:
-                                                    AlwaysStoppedAnimation<Color>(
-                                                      Colors.white,
-                                                    ),
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
                                               ),
                                             )
                                           : const Row(
@@ -528,9 +566,13 @@ class _LoginPageState extends State<LoginPage>
                                   // Divider
                                   Row(
                                     children: [
-                                      Expanded(child: Divider(color: Colors.grey[300])),
+                                      Expanded(
+                                        child: Divider(color: Colors.grey[300]),
+                                      ),
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                        ),
                                         child: Text(
                                           'ou',
                                           style: TextStyle(
@@ -539,7 +581,9 @@ class _LoginPageState extends State<LoginPage>
                                           ),
                                         ),
                                       ),
-                                      Expanded(child: Divider(color: Colors.grey[300])),
+                                      Expanded(
+                                        child: Divider(color: Colors.grey[300]),
+                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 28),
@@ -551,12 +595,15 @@ class _LoginPageState extends State<LoginPage>
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => const RegisterPage(),
+                                            builder: (_) =>
+                                                const RegisterPage(),
                                           ),
                                         );
                                       },
                                       style: TextButton.styleFrom(
-                                        foregroundColor: const Color(0xFF0EA5E9),
+                                        foregroundColor: const Color(
+                                          0xFF0EA5E9,
+                                        ),
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 24,
                                           vertical: 14,
@@ -607,10 +654,7 @@ class _LoginPageState extends State<LoginPage>
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.15),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1.5,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

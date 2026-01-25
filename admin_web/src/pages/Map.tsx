@@ -128,9 +128,9 @@ const Map = () => {
 
     // Add markers for each delivery (livraisons)
     deliveries.forEach((delivery) => {
-      // Use latitude and longitude from the delivery or from associated client
-      const lat = delivery.latitude || delivery.client_latitude || 6.1319 + Math.random() * 0.05;
-      const lng = delivery.longitude || delivery.client_longitude || 1.2228 + Math.random() * 0.05;
+      // Use latitude and longitude from the original order (where the order was placed)
+      const lat = delivery.order_latitude || delivery.latitude_gps || delivery.latitude || delivery.client_latitude || 6.1319 + Math.random() * 0.05;
+      const lng = delivery.order_longitude || delivery.longitude_gps || delivery.longitude || delivery.client_longitude || 1.2228 + Math.random() * 0.05;
       
       if (lat && lng) {
         const color = statusColors[delivery.statut as keyof typeof statusColors] || "#9ca3af";

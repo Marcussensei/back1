@@ -90,6 +90,8 @@ class LivraisonsList(Resource):
                     l.montant_percu,
                     l.latitude_gps,
                     l.longitude_gps,
+                    cmd.latitude as order_latitude,
+                    cmd.longitude as order_longitude,
                     l.adresse_livraison,
                     l.photo_lieu,
                     l.signature_client,
@@ -106,6 +108,7 @@ class LivraisonsList(Resource):
                 FROM livraisons l
                 LEFT JOIN agents a ON l.agent_id = a.id
                 LEFT JOIN clients c ON l.client_id = c.id
+                LEFT JOIN commandes cmd ON l.commande_id = cmd.id
                 WHERE 1=1
             """
             

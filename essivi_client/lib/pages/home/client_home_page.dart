@@ -42,9 +42,11 @@ class _ClientHomePageState extends State<ClientHomePage> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: _buildAppBar(context, cartProvider, authProvider),
-      body: RefreshIndicator(
-        onRefresh: () => productsProvider.refresh(),
-        child: _buildBody(productsProvider, cartProvider),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () => productsProvider.refresh(),
+          child: _buildBody(productsProvider, cartProvider),
+        ),
       ),
     );
   }
@@ -76,6 +78,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
     }
 
     return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -385,11 +388,12 @@ class _ClientHomePageState extends State<ClientHomePage> {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.85,
+              childAspectRatio: 0.75,
             ),
             itemCount: products.length,
             itemBuilder: (context, index) {
@@ -480,8 +484,9 @@ class _ClientHomePageState extends State<ClientHomePage> {
                   const Spacer(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Expanded(
+                      Flexible(
                         child: Text(
                           '${product.prixUnitaire.toStringAsFixed(0)} FCFA',
                           style: const TextStyle(
@@ -489,8 +494,11 @@ class _ClientHomePageState extends State<ClientHomePage> {
                             fontSize: 13,
                             color: Color(0xFF0EA5E9),
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       InkWell(
                         onTap: product.isInStock
                             ? () {

@@ -29,6 +29,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
   Map<String, dynamic>? _agentLocation;
   late LocationService _locationService;
   int? _clientId;
+  LatLng? _clientPosition;
 
   // Default location (Lomé, Togo)
   static const LatLng _defaultLocation = LatLng(6.1725, 1.2314);
@@ -43,6 +44,15 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
   Future<void> _initializeTracking() async {
     // Charger d'abord la position de l'agent et récupérer le client_id
     _loadAgentLocation();
+  }
+
+  void _onClientPositionUpdate(double latitude, double longitude) {
+    if (mounted) {
+      setState(() {
+        _clientPosition = LatLng(latitude, longitude);
+      });
+      _updateMap();
+    }
   }
 
   Future<void> _loadAgentLocation() async {
@@ -80,9 +90,14 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
         final clientIdFromApi = agentLocation['client_id'];
         if (clientIdFromApi != null) {
           setState(() => _clientId = clientIdFromApi);
-          // Démarrer le suivi de position avec le client_id depuis l'API
-          _locationService.startLocationTracking(clientIdFromApi);
-          debugPrint('✅ Suivi de position démarré pour le client $clientIdFromApi');
+          // Démarrer le suivi de position avec l'order_id et callback
+          _locationService.startLocationTracking(
+            widget.orderId,
+            onPositionUpdate: _onClientPositionUpdate,
+          );
+          debugPrint(
+            '✅ Suivi de position démarré pour la commande ${widget.orderId}',
+          );
         } else {
           debugPrint('⚠️ client_id non reçu de l\'API');
         }
@@ -136,7 +151,22 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
     );
 
-    // Add delivery address marker (placeholder - you might want to geocode the address)
+    // Add client marker if position available (red marker for client position)
+    final clientMarkerId = const MarkerId('client');
+    Marker? clientMarker;
+    if (_clientPosition != null) {
+      clientMarker = Marker(
+        markerId: clientMarkerId,
+        position: _clientPosition!,
+        infoWindow: const InfoWindow(
+          title: 'Votre position',
+          snippet: 'Position actuelle',
+        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      );
+    }
+
+    // Add delivery address marker (orange marker for delivery address)
     final deliveryMarkerId = const MarkerId('delivery');
     final deliveryMarker = Marker(
       markerId: deliveryMarkerId,
@@ -145,38 +175,33 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
         title: 'Adresse de livraison',
         snippet: widget.deliveryAddress,
       ),
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
     );
 
+    final markers = {
+      agentMarkerId: agentMarker,
+      deliveryMarkerId: deliveryMarker,
+    };
+    if (clientMarker != null) {
+      markers[clientMarkerId] = clientMarker;
+    }
+
     setState(() {
-      _markers = {agentMarkerId: agentMarker, deliveryMarkerId: deliveryMarker};
+      _markers = markers;
     });
 
-    // Move camera to show both markers
+    // Move camera to show all markers
     if (_mapController != null && mounted) {
       try {
+        final positions = [agentLatLng, _defaultLocation];
+        if (_clientPosition != null) {
+          positions.add(_clientPosition!);
+        }
+
+        final bounds = _calculateBounds(positions);
+
         _mapController!.animateCamera(
-          CameraUpdate.newLatLngBounds(
-            LatLngBounds(
-              southwest: LatLng(
-                agentLatLng.latitude < _defaultLocation.latitude
-                    ? agentLatLng.latitude
-                    : _defaultLocation.latitude,
-                agentLatLng.longitude < _defaultLocation.longitude
-                    ? agentLatLng.longitude
-                    : _defaultLocation.longitude,
-              ),
-              northeast: LatLng(
-                agentLatLng.latitude > _defaultLocation.latitude
-                    ? agentLatLng.latitude
-                    : _defaultLocation.latitude,
-                agentLatLng.longitude > _defaultLocation.longitude
-                    ? agentLatLng.longitude
-                    : _defaultLocation.longitude,
-              ),
-            ),
-            100, // padding
-          ),
+          CameraUpdate.newLatLngBounds(bounds, 100),
         );
         debugPrint('✅ Caméra animée avec succès');
       } catch (e) {
@@ -185,6 +210,25 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     } else {
       debugPrint('⚠️ MapController non initialisé ou widget disposé');
     }
+  }
+
+  LatLngBounds _calculateBounds(List<LatLng> positions) {
+    double minLat = positions.first.latitude;
+    double maxLat = positions.first.latitude;
+    double minLng = positions.first.longitude;
+    double maxLng = positions.first.longitude;
+
+    for (final pos in positions) {
+      minLat = minLat < pos.latitude ? minLat : pos.latitude;
+      maxLat = maxLat > pos.latitude ? maxLat : pos.latitude;
+      minLng = minLng < pos.longitude ? minLng : pos.longitude;
+      maxLng = maxLng > pos.longitude ? maxLng : pos.longitude;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
   }
 
   @override
@@ -264,79 +308,95 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                         ),
                       ],
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Agent info
-                        if (_agentLocation != null) ...[
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.person,
-                                color: Theme.of(context).primaryColor,
+                    child: SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight:
+                              MediaQuery.of(context).size.height * 0.4 -
+                              32, // Account for padding
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Agent info
+                            if (_agentLocation != null) ...[
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.person,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Agent: ${_agentLocation!['name']}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(height: 8),
                               Text(
-                                'Agent: ${_agentLocation!['name']}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                'Téléphone: ${_agentLocation!['phone']}',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
                                 ),
                               ),
+                              const SizedBox(height: 16),
                             ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Téléphone: ${_agentLocation!['phone']}',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
 
-                        // Delivery address
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              color: Theme.of(context).primaryColor,
+                            // Delivery address
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Adresse de livraison',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Adresse de livraison',
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.deliveryAddress,
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 24,
+                            ), // Replace Spacer with fixed spacing
+                            // Refresh button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _loadAgentLocation,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Actualiser la position'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          widget.deliveryAddress,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        // Refresh button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _loadAgentLocation,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Actualiser la position'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
