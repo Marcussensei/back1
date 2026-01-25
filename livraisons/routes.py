@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from notifications import get_notification_service
 import traceback
+from threading import Thread
 
 
 def convert_decimal(obj):
@@ -20,6 +21,36 @@ def convert_decimal(obj):
     if isinstance(obj, (list, tuple)):
         return [convert_decimal(item) for item in obj]
     return obj
+
+
+def send_notifications_async(client_info, agent_info, livraison_info):
+    """Send notifications in a background thread to avoid blocking the response"""
+    try:
+        notification_service = get_notification_service()
+        
+        # Notify client about agent assignment
+        if client_info and client_info.get("email"):
+            notification_service.notify_agent_assignment(
+                client_email=client_info["email"],
+                client_name=client_info.get("client_name"),
+                agent_name=agent_info.get("nom"),
+                agent_phone=agent_info.get("telephone", "N/A"),
+                delivery_address=livraison_info.get("adresse_livraison", "Adresse non spécifiée"),
+                delivery_id=livraison_info.get("id")
+            )
+        
+        # Notify agent about delivery assignment
+        if agent_info.get("user_id"):
+            notification_service.notify_agent_delivery_assignment(
+                agent_user_id=agent_info["user_id"],
+                agent_name=agent_info.get("agent_name"),
+                delivery_id=livraison_info.get("id"),
+                client_name=client_info.get("client_name", "Client"),
+                delivery_address=livraison_info.get("adresse_livraison", "Adresse non spécifiée")
+            )
+    except Exception as e:
+        print(f"[send_notifications_async] Error: {str(e)}")
+        print(traceback.format_exc())
 
 livraisons_ns = Namespace(
     "livraisons",
@@ -493,44 +524,49 @@ class AssignAgent(Resource):
 
             conn.commit()
             
-            # Notify client about agent assignment
-            cur.execute("""
-                SELECT c.id, u.email, u.nom as client_name
-                FROM clients c
-                JOIN users u ON c.user_id = u.id
-                WHERE c.id = %s
-            """, (livraison["client_id"],))
-            client = cur.fetchone()
-
-            if client and client["email"]:
-                notification_service = get_notification_service()
-                notification_service.notify_agent_assignment(
-                    client_email=client["email"],
-                    client_name=client["client_name"],
-                    agent_name=agent["nom"],
-                    agent_phone=agent.get("telephone", "N/A"),
-                    delivery_address=livraison["adresse_livraison"] or "Adresse non spécifiée",
-                    delivery_id=livraison_id
+            # Prepare notification data for async sending
+            client_info = None
+            agent_user_info = None
+            
+            try:
+                # Fetch client info for notification
+                cur.execute("""
+                    SELECT c.id, u.email, u.nom as client_name
+                    FROM clients c
+                    JOIN users u ON c.user_id = u.id
+                    WHERE c.id = %s
+                """, (livraison["client_id"],))
+                client_info = cur.fetchone()
+                if client_info:
+                    client_info = dict(client_info) if hasattr(client_info, 'keys') else client_info
+                
+                # Fetch agent user info for notification
+                cur.execute("""
+                    SELECT u.id as user_id, u.nom as agent_name
+                    FROM agents a
+                    JOIN users u ON a.user_id = u.id
+                    WHERE a.id = %s
+                """, (agent_id,))
+                agent_user_info = cur.fetchone()
+                if agent_user_info:
+                    agent_user_info = dict(agent_user_info) if hasattr(agent_user_info, 'keys') else agent_user_info
+                    agent_user_info["nom"] = agent["nom"]
+                    agent_user_info["telephone"] = agent.get("telephone")
+            except Exception as e:
+                print(f"[AssignAgent] Error fetching notification data: {str(e)}")
+            
+            # Send notifications in background thread (non-blocking)
+            if client_info or agent_user_info:
+                livraison_data = {
+                    "id": livraison_id,
+                    "adresse_livraison": livraison.get("adresse_livraison")
+                }
+                notification_thread = Thread(
+                    target=send_notifications_async,
+                    args=(client_info, agent_user_info or agent, livraison_data),
+                    daemon=True
                 )
-
-            # Notify agent about delivery assignment
-            cur.execute("""
-                SELECT u.id as user_id, u.nom as agent_name
-                FROM agents a
-                JOIN users u ON a.user_id = u.id
-                WHERE a.id = %s
-            """, (agent_id,))
-            agent_user = cur.fetchone()
-
-            if agent_user:
-                notification_service = get_notification_service()
-                notification_service.notify_agent_delivery_assignment(
-                    agent_user_id=agent_user["user_id"],
-                    agent_name=agent_user["agent_name"],
-                    delivery_id=livraison_id,
-                    client_name=client["client_name"] if client else "Client",
-                    delivery_address=livraison["adresse_livraison"] or "Adresse non spécifiée"
-                )
+                notification_thread.start()
             
             return {
                 "message": "Agent assigné avec succès",
