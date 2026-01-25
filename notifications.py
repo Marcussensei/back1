@@ -3,6 +3,7 @@ Notifications module - Handle SMS and Email notifications
 """
 import os
 import smtplib
+import socket
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -40,6 +41,8 @@ class NotificationService:
             True if sent successfully, False otherwise
         """
         try:
+            print(f"[send_email] Preparing email to {recipient_email}")
+            
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
             msg["From"] = self.sender_email
@@ -53,16 +56,29 @@ class NotificationService:
             if html_body:
                 msg.attach(MIMEText(html_body, "html"))
             
-            # Connect and send
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+            print(f"[send_email] Connecting to SMTP server {self.smtp_server}:{self.smtp_port}")
+            # Connect and send with timeout
+            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10) as server:
+                print(f"[send_email] Connected to SMTP, starting TLS")
                 server.starttls()
+                print(f"[send_email] TLS started, logging in as {self.sender_email}")
                 server.login(self.sender_email, self.sender_password)
+                print(f"[send_email] Logged in successfully")
                 server.send_message(msg)
+                print(f"[send_email] Message sent successfully")
             
             print(f"✅ Email sent to {recipient_email}")
             return True
+        except socket.timeout:
+            print(f"❌ SMTP timeout while sending email to {recipient_email}")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"❌ SMTP error sending email to {recipient_email}: {str(e)}")
+            return False
         except Exception as e:
-            print(f"❌ Error sending email: {str(e)}")
+            print(f"❌ Error sending email to {recipient_email}: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
             return False
     
     def send_sms(self, phone_number: str, message: str) -> bool:
@@ -91,6 +107,8 @@ class NotificationService:
         """
         Notify client that an agent has been assigned to their delivery
         """
+        print(f"[notify_agent_assignment] Starting for delivery_id={delivery_id}, client={client_name}")
+        
         subject = f"[ESSIVI] Votre livraison #{delivery_id} a été assignée"
         
         body = f"""Bonjour {client_name},
@@ -133,7 +151,9 @@ ESSIVI"""
         </html>
         """
         
-        return self.send_email(client_email, subject, body, html_body)
+        result = self.send_email(client_email, subject, body, html_body)
+        print(f"[notify_agent_assignment] Completed with result={result}")
+        return result
     
     def notify_order_status_change(self, client_email: str, client_name: str,
                                    order_id: int, old_status: str, new_status: str) -> bool:
@@ -209,6 +229,8 @@ ESSIVI"""
             True if notification created successfully, False otherwise
         """
         try:
+            print(f"[notify_agent_delivery_assignment] Creating notification for agent_user_id={agent_user_id}, delivery_id={delivery_id}")
+            
             from db import get_connection
 
             conn = get_connection()
@@ -227,6 +249,14 @@ ESSIVI"""
             ))
 
             conn.commit()
+            print(f"[notify_agent_delivery_assignment] Notification created successfully")
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"[notify_agent_delivery_assignment] Error: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return False
             print(f"✅ Notification créée pour l'agent {agent_name} (user_id: {agent_user_id})")
             return True
 
