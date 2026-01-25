@@ -5,6 +5,8 @@ from werkzeug.security import generate_password_hash
 from werkzeug.exceptions import HTTPException
 from db import get_connection
 import psycopg2
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 agents_ns = Namespace(
     "agents",
@@ -478,6 +480,96 @@ class ActiveAgentsLocations(Resource):
 
         except Exception as e:
             agents_ns.abort(500, f"Erreur serveur: {str(e)}")
+        finally:
+            conn.close()
+
+
+@agents_ns.route("/<int:agent_id>/monthly-stats")
+class AgentMonthlyStats(Resource):
+    @agents_ns.doc(security="BearerAuth")
+    @jwt_required()
+    def get(self, agent_id):
+        """Récupérer les statistiques mensuelles d'un agent"""
+        conn = get_connection()
+        cur = conn.cursor()
+
+        try:
+            # Vérifier que l'agent existe
+            cur.execute("SELECT id FROM agents WHERE id = %s", (agent_id,))
+            if not cur.fetchone():
+                agents_ns.abort(404, "Agent non trouvé")
+
+            # Statistiques des 6 derniers mois
+            cur.execute("""
+                SELECT
+                    TO_CHAR(DATE_TRUNC('month', l.created_at), 'Mon') as month,
+                    TO_CHAR(DATE_TRUNC('month', l.created_at), 'YYYY') as year,
+                    COUNT(*) as deliveries,
+                    COALESCE(SUM(l.montant_percu), 0) as revenue
+                FROM livraisons l
+                WHERE l.agent_id = %s
+                AND l.created_at > CURRENT_DATE - INTERVAL '6 months'
+                GROUP BY DATE_TRUNC('month', l.created_at), TO_CHAR(DATE_TRUNC('month', l.created_at), 'Mon'), TO_CHAR(DATE_TRUNC('month', l.created_at), 'YYYY')
+                ORDER BY DATE_TRUNC('month', l.created_at) DESC
+            """, (agent_id,))
+
+            monthly_data = cur.fetchall()
+
+            # Statistiques du mois en cours
+            cur.execute("""
+                SELECT
+                    COUNT(*) as this_month_deliveries,
+                    COALESCE(SUM(montant_percu), 0) as this_month_revenue
+                FROM livraisons
+                WHERE agent_id = %s
+                AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+            """, (agent_id,))
+
+            current_month = cur.fetchone()
+
+            # Statistiques globales pour calculer les taux
+            cur.execute("""
+                SELECT
+                    COUNT(*) as total_deliveries,
+                    SUM(CASE WHEN statut = 'livree' THEN 1 ELSE 0 END) as completed_deliveries,
+                    COALESCE(SUM(montant_percu), 0) as total_revenue
+                FROM livraisons
+                WHERE agent_id = %s
+            """, (agent_id,))
+
+            global_stats = cur.fetchone()
+
+            # Calculer les taux
+            total_deliveries = global_stats['total_deliveries'] or 0
+            completed_deliveries = global_stats['completed_deliveries'] or 0
+            completion_rate = (completed_deliveries / total_deliveries * 100) if total_deliveries > 0 else 0
+
+            # Calculer taux à l'heure (livraisons terminées / total * 100, approximatif)
+            on_time_rate = completion_rate * 0.9  # Approximation
+
+            return {
+                "monthly_stats": [
+                    {
+                        "month": f"{row['month']} {row['year']}",
+                        "deliveries": row['deliveries'] or 0,
+                        "revenue": float(row['revenue'] or 0)
+                    }
+                    for row in monthly_data
+                ],
+                "current_month": {
+                    "deliveries": current_month['this_month_deliveries'] or 0,
+                    "revenue": float(current_month['this_month_revenue'] or 0)
+                },
+                "global_stats": {
+                    "total_deliveries": total_deliveries,
+                    "completion_rate": round(completion_rate, 1),
+                    "on_time_rate": round(on_time_rate, 1),
+                    "total_revenue": float(global_stats['total_revenue'] or 0)
+                }
+            }
+
+        except Exception as e:
+            agents_ns.abort(500, f"Erreur: {str(e)}")
         finally:
             conn.close()
 

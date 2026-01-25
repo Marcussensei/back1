@@ -63,6 +63,22 @@ export const useAgentLocations = () => {
   });
 };
 
+export const useAgentDeliveries = (agentId: number, params?: Record<string, any>) => {
+  return useQuery({
+    queryKey: ["agentDeliveries", agentId, params],
+    queryFn: () => agentsAPI.getDeliveries(agentId, params),
+    enabled: !!agentId,
+  });
+};
+
+export const useAgentMonthlyStats = (agentId: number) => {
+  return useQuery({
+    queryKey: ["agentMonthlyStats", agentId],
+    queryFn: () => agentsAPI.getMonthlyStats(agentId),
+    enabled: !!agentId,
+  });
+};
+
 // Clients Hooks
 export const useClients = (params?: Record<string, any>) => {
   return useQuery({

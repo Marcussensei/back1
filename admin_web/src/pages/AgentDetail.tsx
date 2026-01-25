@@ -25,113 +25,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
-import { useAgent } from "@/hooks/useApi";
-
-// Mock data for the agent
-const agentData = {
-  "AG-001": {
-    id: "AG-001",
-    name: "Kofi Mensah",
-    initials: "KM",
-    phone: "+228 90 12 34 56",
-    email: "kofi.mensah@essivi.tg",
-    address: "Quartier Bè, Lomé, Togo",
-    tricycle: "TO-1234-AA",
-    status: "active",
-    deliveries: 1245,
-    hireDate: "15/03/2023",
-    rating: 4.8,
-    completionRate: 98,
-    onTimeRate: 95,
-    totalRevenue: 2450000,
-    thisMonthDeliveries: 156,
-    thisMonthRevenue: 312000,
-  },
-  "AG-002": {
-    id: "AG-002",
-    name: "Ama Diallo",
-    initials: "AD",
-    phone: "+228 91 23 45 67",
-    email: "ama.diallo@essivi.tg",
-    address: "Quartier Tokoin, Lomé, Togo",
-    tricycle: "TO-5678-BB",
-    status: "active",
-    deliveries: 987,
-    hireDate: "22/06/2023",
-    rating: 4.6,
-    completionRate: 96,
-    onTimeRate: 92,
-    totalRevenue: 1974000,
-    thisMonthDeliveries: 134,
-    thisMonthRevenue: 268000,
-  },
-};
-
-const deliveryHistory = [
-  {
-    id: "LIV-2024-001",
-    client: "Restaurant Le Palmier",
-    date: "24/12/2024",
-    time: "14:30",
-    status: "completed",
-    amount: 2500,
-    zone: "Tokoin",
-  },
-  {
-    id: "LIV-2024-002",
-    client: "Boutique Mode Express",
-    date: "24/12/2024",
-    time: "11:15",
-    status: "completed",
-    amount: 3000,
-    zone: "Bè",
-  },
-  {
-    id: "LIV-2024-003",
-    client: "Pharmacie Centrale",
-    date: "23/12/2024",
-    time: "16:45",
-    status: "completed",
-    amount: 1500,
-    zone: "Nyékonakpoè",
-  },
-  {
-    id: "LIV-2024-004",
-    client: "Supermarché Bonheur",
-    date: "23/12/2024",
-    time: "09:00",
-    status: "cancelled",
-    amount: 4000,
-    zone: "Adidogomé",
-  },
-  {
-    id: "LIV-2024-005",
-    client: "Hôtel Atlantic",
-    date: "22/12/2024",
-    time: "13:20",
-    status: "completed",
-    amount: 5500,
-    zone: "Boulevard",
-  },
-  {
-    id: "LIV-2024-006",
-    client: "Clinique Espoir",
-    date: "22/12/2024",
-    time: "10:00",
-    status: "completed",
-    amount: 2000,
-    zone: "Hédzranawoé",
-  },
-];
-
-const monthlyStats = [
-  { month: "Juil", deliveries: 120, revenue: 240000 },
-  { month: "Août", deliveries: 135, revenue: 270000 },
-  { month: "Sept", deliveries: 142, revenue: 284000 },
-  { month: "Oct", deliveries: 128, revenue: 256000 },
-  { month: "Nov", deliveries: 151, revenue: 302000 },
-  { month: "Déc", deliveries: 156, revenue: 312000 },
-];
+import { useAgent, useAgentDeliveries, useAgentMonthlyStats } from "@/hooks/useApi";
 
 const statusConfig = {
   active: {
@@ -167,9 +61,24 @@ const AgentDetail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const { data: agentData, isLoading, isError, error, refetch } = useAgent(Number(id));
+  const agentId = Number(id);
+  const { data: agent, isLoading, isError, error, refetch } = useAgent(agentId);
+  const { data: deliveryData, isLoading: deliveriesLoading } = useAgentDeliveries(agentId);
+  const { data: statsData, isLoading: statsLoading } = useAgentMonthlyStats(agentId);
 
-  const agent = agentData;
+  // Mapper les livraisons API au format attendu
+  const deliveryHistory = deliveryData?.map((delivery: any) => ({
+    id: delivery.id,
+    client: delivery.client_nom || "Client inconnu",
+    date: new Date(delivery.created_at).toLocaleDateString('fr-FR'),
+    time: new Date(delivery.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+    status: delivery.statut?.toLowerCase() === 'livree' ? 'completed' : delivery.statut?.toLowerCase() === 'annulee' ? 'cancelled' : 'pending',
+    amount: delivery.montant_percu || 0,
+    zone: delivery.adresse_livraison || "Zone inconnue",
+  })) || [];
+
+  // Mapper les statistiques mensuelles
+  const monthlyStats = statsData?.monthly_stats?.slice(0, 6).reverse() || [];
 
   if (isLoading) {
     return (
@@ -283,7 +192,7 @@ const AgentDetail = () => {
                     <Package className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{agent.deliveries.toLocaleString()}</p>
+                    <p className="text-2xl font-bold">{agent.deliveries || 0}</p>
                     <p className="text-xs text-muted-foreground">Livraisons totales</p>
                   </div>
                 </div>
@@ -297,7 +206,7 @@ const AgentDetail = () => {
                     <CheckCircle className="w-5 h-5 text-success" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{agent.completionRate}%</p>
+                    <p className="text-2xl font-bold">{statsData?.global_stats?.completion_rate || 0}%</p>
                     <p className="text-xs text-muted-foreground">Taux de succès</p>
                   </div>
                 </div>
@@ -311,7 +220,7 @@ const AgentDetail = () => {
                     <Clock className="w-5 h-5 text-info" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{agent.onTimeRate}%</p>
+                    <p className="text-2xl font-bold">{statsData?.global_stats?.on_time_rate || 0}%</p>
                     <p className="text-xs text-muted-foreground">À l'heure</p>
                   </div>
                 </div>
@@ -325,7 +234,7 @@ const AgentDetail = () => {
                     <TrendingUp className="w-5 h-5 text-warning" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{(agent.totalRevenue / 1000).toFixed(0)}K</p>
+                    <p className="text-2xl font-bold">{((statsData?.global_stats?.total_revenue || 0) / 1000).toFixed(0)}K</p>
                     <p className="text-xs text-muted-foreground">Revenu (FCFA)</p>
                   </div>
                 </div>
@@ -346,36 +255,46 @@ const AgentDetail = () => {
                   <CardTitle className="text-lg">Dernières livraisons</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {deliveryHistory.map((delivery, index) => {
-                      const StatusIcon = deliveryStatusConfig[delivery.status as keyof typeof deliveryStatusConfig].icon;
-                      return (
-                        <div
-                          key={delivery.id}
-                          className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors animate-fade-in"
-                          style={{ animationDelay: `${index * 50}ms` }}
-                        >
-                          <div className="flex items-center gap-4">
-                            <StatusIcon
-                              className={`w-5 h-5 ${deliveryStatusConfig[delivery.status as keyof typeof deliveryStatusConfig].className}`}
-                            />
-                            <div>
-                              <p className="font-medium">{delivery.client}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {delivery.date} à {delivery.time} • {delivery.zone}
-                              </p>
+                  {deliveriesLoading ? (
+                    <div className="flex justify-center items-center h-64">
+                      <RefreshCw className="w-6 h-6 animate-spin" />
+                    </div>
+                  ) : deliveryHistory.length > 0 ? (
+                    <div className="space-y-4">
+                      {deliveryHistory.map((delivery, index) => {
+                        const StatusIcon = deliveryStatusConfig[delivery.status as keyof typeof deliveryStatusConfig].icon;
+                        return (
+                          <div
+                            key={delivery.id}
+                            className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors animate-fade-in"
+                            style={{ animationDelay: `${index * 50}ms` }}
+                          >
+                            <div className="flex items-center gap-4">
+                              <StatusIcon
+                                className={`w-5 h-5 ${deliveryStatusConfig[delivery.status as keyof typeof deliveryStatusConfig].className}`}
+                              />
+                              <div>
+                                <p className="font-medium">{delivery.client}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {delivery.date} à {delivery.time} • {delivery.zone}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold">{delivery.amount.toLocaleString()} FCFA</p>
+                              <Badge variant="outline" className="text-xs">
+                                {delivery.id}
+                              </Badge>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-bold">{delivery.amount.toLocaleString()} FCFA</p>
-                            <Badge variant="outline" className="text-xs">
-                              {delivery.id}
-                            </Badge>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Aucune livraison enregistrée pour cet agent</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -386,41 +305,53 @@ const AgentDetail = () => {
                   <CardTitle className="text-lg">Performance des 6 derniers mois</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {monthlyStats.map((stat, index) => (
-                      <div
-                        key={stat.month}
-                        className="animate-fade-in"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="font-medium">{stat.month}</span>
-                          <span className="text-muted-foreground">
-                            {stat.deliveries} livraisons • {(stat.revenue / 1000).toFixed(0)}K FCFA
-                          </span>
-                        </div>
-                        <Progress
-                          value={(stat.deliveries / 160) * 100}
-                          className="h-3"
-                        />
+                  {statsLoading ? (
+                    <div className="flex justify-center items-center h-64">
+                      <RefreshCw className="w-6 h-6 animate-spin" />
+                    </div>
+                  ) : monthlyStats.length > 0 ? (
+                    <>
+                      <div className="space-y-4">
+                        {monthlyStats.map((stat, index) => (
+                          <div
+                            key={stat.month}
+                            className="animate-fade-in"
+                            style={{ animationDelay: `${index * 50}ms` }}
+                          >
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="font-medium">{stat.month}</span>
+                              <span className="text-muted-foreground">
+                                {stat.deliveries} livraisons • {(stat.revenue / 1000).toFixed(0)}K FCFA
+                              </span>
+                            </div>
+                            <Progress
+                              value={(stat.deliveries / 160) * 100}
+                              className="h-3"
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
 
-                  <div className="mt-6 pt-6 border-t border-border grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 rounded-lg bg-primary/5">
-                      <p className="text-3xl font-bold text-primary">
-                        {agent.thisMonthDeliveries}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Livraisons ce mois</p>
+                      <div className="mt-6 pt-6 border-t border-border grid grid-cols-2 gap-4">
+                        <div className="text-center p-4 rounded-lg bg-primary/5">
+                          <p className="text-3xl font-bold text-primary">
+                            {statsData?.current_month?.deliveries || 0}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Livraisons ce mois</p>
+                        </div>
+                        <div className="text-center p-4 rounded-lg bg-success/5">
+                          <p className="text-3xl font-bold text-success">
+                            {((statsData?.current_month?.revenue || 0) / 1000).toFixed(0)}K
+                          </p>
+                          <p className="text-sm text-muted-foreground">Revenu ce mois (FCFA)</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Aucune donnée statistique disponible</p>
                     </div>
-                    <div className="text-center p-4 rounded-lg bg-success/5">
-                      <p className="text-3xl font-bold text-success">
-                        {(agent.thisMonthRevenue / 1000).toFixed(0)}K
-                      </p>
-                      <p className="text-sm text-muted-foreground">Revenu ce mois (FCFA)</p>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

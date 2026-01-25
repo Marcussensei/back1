@@ -79,6 +79,14 @@ export const agentsAPI = {
       method: "PUT",
       body: JSON.stringify({ latitude, longitude }),
     }),
+
+  getDeliveries: (agentId: number, params?: Record<string, any>) => {
+    const combinedParams: Record<string, string> = { ...params, agent_id: agentId.toString() };
+    const query = new URLSearchParams(combinedParams).toString();
+    return apiRequest(`/livraisons/?${query}`);
+  },
+
+  getMonthlyStats: (agentId: number) => apiRequest(`/agents/${agentId}/monthly-stats`),
 };
 
 // Clients APIs
