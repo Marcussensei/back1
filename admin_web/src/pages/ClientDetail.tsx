@@ -31,7 +31,7 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
-import { useClient, useUpdateClient, useClientOrders, useClientMonthlyStats } from "@/hooks/useApi";
+import { useClient, useUpdateClient, useClientOrders } from "@/hooks/useApi";
 import { EditClientForm } from "@/components/clients/EditClientForm";
 
 // Mock client data - À supprimer après vérification
@@ -114,7 +114,6 @@ const ClientDetail = () => {
   const clientId = Number(id);
   const { data: client, isLoading, isError, error, refetch } = useClient(clientId);
   const { data: ordersResponse, isLoading: ordersLoading } = useClientOrders(clientId);
-  const { data: statsData, isLoading: statsLoading } = useClientMonthlyStats(clientId);
   const updateClientMutation = useUpdateClient(clientId);
 
   // Extraire l'array de commandes de la réponse
@@ -129,8 +128,39 @@ const ClientDetail = () => {
     status: order.statut?.toLowerCase() === 'livree' ? 'delivered' : order.statut?.toLowerCase() === 'annulee' ? 'cancelled' : 'pending',
   })) || [];
 
-  // Mapper les statistiques mensuelles
-  const monthlyStats = statsData?.monthly_stats?.slice(0, 6).reverse() || [];
+  // Calculer les statistiques à partir des commandes
+  const totalOrders = ordersData.length;
+  const totalAmount = ordersData.reduce((sum: number, order: any) => sum + (order.montant_total || 0), 0);
+  const avgOrderValue = totalOrders > 0 ? totalAmount / totalOrders : 0;
+
+  // Mapper les statistiques mensuelles à partir des commandes
+  const getMonthlyStats = () => {
+    const monthMap = new Map<string, { orders: number; amount: number }>();
+    
+    ordersData.forEach((order: any) => {
+      const date = new Date(order.date_commande);
+      const monthKey = date.toLocaleString('fr-FR', { month: 'short', year: 'numeric' });
+      
+      if (monthMap.has(monthKey)) {
+        const existing = monthMap.get(monthKey)!;
+        existing.orders += 1;
+        existing.amount += order.montant_total || 0;
+      } else {
+        monthMap.set(monthKey, {
+          orders: 1,
+          amount: order.montant_total || 0
+        });
+      }
+    });
+
+    // Retourner les 6 derniers mois
+    return Array.from(monthMap.entries())
+      .map(([month, data]) => ({ month, ...data }))
+      .reverse()
+      .slice(0, 6);
+  };
+
+  const monthlyStats = getMonthlyStats();
 
   const handleUpdateClient = async (data: any) => {
     try {
@@ -270,7 +300,7 @@ const ClientDetail = () => {
                   <ShoppingCart className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-heading font-bold">{statsData?.global_stats?.total_orders || 0}</p>
+                  <p className="text-2xl font-heading font-bold">{totalOrders}</p>
                   <p className="text-xs text-muted-foreground">Commandes</p>
                 </div>
               </div>
@@ -283,7 +313,7 @@ const ClientDetail = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-heading font-bold">
-                    {((statsData?.global_stats?.total_amount || 0) / 1000).toFixed(0)}K
+                    {(totalAmount / 1000).toFixed(0)}K
                   </p>
                   <p className="text-xs text-muted-foreground">FCFA Total</p>
                 </div>
@@ -296,7 +326,7 @@ const ClientDetail = () => {
                   <TrendingUp className="w-5 h-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-2xl font-heading font-bold">{Math.round(statsData?.global_stats?.avg_order_value || 0)}</p>
+                  <p className="text-2xl font-heading font-bold">{Math.round(avgOrderValue)}</p>
                   <p className="text-xs text-muted-foreground">FCFA/Cmd</p>
                 </div>
               </div>
@@ -309,7 +339,7 @@ const ClientDetail = () => {
                 </div>
                 <div>
                   <p className="text-sm font-heading font-bold">
-                    {statsData?.current_month?.orders > 0 ? "Actif ce mois" : "Aucune cmd"}
+                    {totalOrders > 0 ? "Actif" : "Aucune cmd"}
                   </p>
                   <p className="text-xs text-muted-foreground">Activité</p>
                 </div>
@@ -320,7 +350,7 @@ const ClientDetail = () => {
           {/* Monthly Performance */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Performance mensuelle</h3>
-            {statsLoading ? (
+            {ordersLoading ? (
               <div className="flex justify-center items-center h-64">
                 <RefreshCw className="w-6 h-6 animate-spin" />
               </div>
