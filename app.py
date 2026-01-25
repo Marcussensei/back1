@@ -56,10 +56,10 @@ if render_url:
 
 CORS(
     app,
-    supports_credentials=False,
+    supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "Accept"],
     expose_headers=["Content-Type"],
-    origins="*",
+    origins=allowed_origins,
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     max_age=3600
 )
