@@ -5,6 +5,7 @@ from db import get_connection
 from datetime import datetime
 from decimal import Decimal
 from notifications import get_notification_service
+import traceback
 
 
 def convert_decimal(obj):
@@ -137,12 +138,42 @@ class LivraisonsList(Resource):
                 params.append(montant_max)
             
             # Compter le total
-            count_query = query.replace(
-                "SELECT\n                    l.id,\n                    l.commande_id,\n                    l.agent_id,\n                    c.id as client_id,\n                    l.quantite,\n                    l.montant_percu,\n                    l.latitude_gps,\n                    l.longitude_gps,\n                    cmd.latitude as order_latitude,\n                    cmd.longitude as order_longitude,\n                    l.adresse_livraison,\n                    l.photo_lieu,\n                    l.signature_client,\n                    l.date_livraison,\n                    l.heure_livraison,\n                    l.statut,\n                    l.created_at,\n                    a.nom as agent_nom,\n                    a.telephone as agent_telephone,\n                    a.tricycle,\n                    c.nom_point_vente,\n                    c.responsable,\n                    c.telephone as client_telephone",
-                "SELECT COUNT(*) as total"
-            )
+            count_query = """
+                SELECT COUNT(*) as total
+                FROM livraisons l
+                LEFT JOIN agents a ON l.agent_id = a.id
+                LEFT JOIN clients c ON l.client_id = c.id
+                LEFT JOIN commandes cmd ON l.commande_id = cmd.id
+                WHERE 1=1
+            """
+
+            if agent_id:
+                count_query += " AND l.agent_id = %s"
+            if client_id:
+                count_query += " AND l.client_id = %s"
+            if statut:
+                count_query += " AND l.statut = %s"
+            if date_debut:
+                count_query += " AND DATE(l.date_livraison) >= %s"
+            if date_fin:
+                count_query += " AND DATE(l.date_livraison) <= %s"
+            if montant_min is not None:
+                count_query += " AND l.montant_percu >= %s"
+            if montant_max is not None:
+                count_query += " AND l.montant_percu <= %s"
             cur.execute(count_query, params)
-            total = cur.fetchone()["total"]
+            count_result = cur.fetchone()
+            
+            # Safe extraction of total count
+            if count_result is None:
+                print("[LivraisonsList] count_result is None")
+                print(f"[LivraisonsList] count_query: {count_query}")
+                print(f"[LivraisonsList] params: {params}")
+                total = 0
+            else:
+                total = count_result.get("total") if isinstance(count_result, dict) else count_result[0]
+                if total is None:
+                    total = 0
             
             # Ajouter pagination et tri
             query += " ORDER BY l.created_at DESC LIMIT %s OFFSET %s"
@@ -161,6 +192,8 @@ class LivraisonsList(Resource):
             }, 200
             
         except Exception as e:
+            print("[LivraisonsList GET] Exception occurred:")
+            print(traceback.format_exc())
             return {"error": f"Erreur serveur: {str(e)}"}, 500
         finally:
             conn.close()

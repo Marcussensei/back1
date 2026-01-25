@@ -63,7 +63,7 @@ class LocationService {
 
   /// Met à jour la position du client sur le serveur
   Future<bool> updateClientLocation(
-    int orderId,
+    int clientId,
     double latitude,
     double longitude,
   ) async {
@@ -75,14 +75,10 @@ class LocationService {
         return false;
       }
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/commandes/update-client-position'),
+      final response = await http.put(
+        Uri.parse('$_baseUrl/cartographie/clients/$clientId/localiser'),
         headers: {'Content-Type': 'application/json', 'Authorization': token},
-        body: jsonEncode({
-          'commande_id': orderId,
-          'latitude': latitude,
-          'longitude': longitude,
-        }),
+        body: jsonEncode({'latitude': latitude, 'longitude': longitude}),
       );
 
       if (response.statusCode == 200) {
@@ -100,7 +96,7 @@ class LocationService {
 
   /// Démarre le suivi de position (mise à jour toutes les 30 secondes)
   void startLocationTracking(
-    int orderId, {
+    int clientId, {
     Function(double latitude, double longitude)? onPositionUpdate,
   }) {
     if (_isTracking) {
@@ -113,12 +109,12 @@ class LocationService {
     _debugPrint('🚀 Démarrage du suivi de position du client...');
 
     // Mise à jour immédiate
-    _updateAndSendLocation(orderId);
+    _updateAndSendLocation(clientId);
 
     // Mise à jour toutes les 30 secondes
     _locationTimer = Timer.periodic(
       const Duration(seconds: 30),
-      (_) => _updateAndSendLocation(orderId),
+      (_) => _updateAndSendLocation(clientId),
     );
   }
 
@@ -130,13 +126,13 @@ class LocationService {
   }
 
   /// Récupère et envoie la position
-  Future<void> _updateAndSendLocation(int orderId) async {
+  Future<void> _updateAndSendLocation(int clientId) async {
     try {
       final position = await getCurrentLocation();
 
       if (position != null) {
         await updateClientLocation(
-          orderId,
+          clientId,
           position.latitude,
           position.longitude,
         );
