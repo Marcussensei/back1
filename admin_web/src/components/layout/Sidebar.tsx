@@ -25,7 +25,7 @@ const navItems = [
   { icon: ShoppingCart, label: "Commandes", href: "/orders" },
   { icon: Package, label: "Produits", href: "/products" },
   { icon: Truck, label: "Livraisons", href: "/deliveries" },
-  { icon: Bike, label: "Tricycles", href: "/tricycles" },
+  // { icon: Bike, label: "Tricycles", href: "/tricycles" },
   { icon: MapIcon, label: "Carte", href: "/map" },
   { icon: BarChart3, label: "Rapports", href: "/reports" },
   { icon: Settings, label: "Paramètres", href: "/settings" },

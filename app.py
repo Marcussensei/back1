@@ -17,6 +17,8 @@ from user_notifications import user_notifications_ns
 from rapports.routes import rapports_ns
 from tours.blueprint import tours_bp
 from db import get_connection
+from datetime import timedelta
+
 
 app = Flask(__name__)
 
@@ -30,6 +32,8 @@ app.config["JWT_HEADER_TYPE"] = ""  # Accept token without "Bearer " prefix
 app.config["JWT_COOKIE_SECURE"] = os.getenv("RENDER") is not None  # True on Render (HTTPS), False locally
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 app.config["JWT_COOKIE_SAMESITE"] = "None"  # None pour cross-domain
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=10)
+
 
 # =========================
 # EXTENSIONS
