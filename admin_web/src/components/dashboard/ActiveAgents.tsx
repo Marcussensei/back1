@@ -36,10 +36,11 @@ const statusConfig = {
     dot: "bg-warning",
   },
   inactive: {
-    label: "Inactif",
-    className: "bg-muted text-muted-foreground border-border",
+    label: "Actif",
+    className: "bg-success/20 text-success border-border/20",
     dot: "bg-muted-foreground",
   },
+ 
 };
 
 interface ActiveAgentsProps {
@@ -105,7 +106,7 @@ export function ActiveAgents({ agents = defaultAgents }: ActiveAgentsProps) {
                     >
                       {
                         statusConfig[agentStatus as keyof typeof statusConfig]
-                          ?.label || "Inactif"
+                          ?.label || "En tournée"
                       }
                     </Badge>
                   </div>

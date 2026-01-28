@@ -300,13 +300,13 @@ const Products = () => {
                           <Package className="w-4 h-4 mr-2" />
                           Gérer stock
                         </DropdownMenuItem>
-                        <DropdownMenuItem
+                        {/* <DropdownMenuItem
                           className="text-red-600"
                           onClick={() => handleDeleteProduct(product.id)}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Supprimer
-                        </DropdownMenuItem>
+                        </DropdownMenuItem> */}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

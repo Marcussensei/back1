@@ -391,7 +391,7 @@ const Reports = () => {
                     border: "1px solid #374151",
                     borderRadius: "8px",
                   }}
-                  formatter={(value: any) => [(Number(value) / 1000000).toFixed(1) + "M", "FCFA"]}
+                  formatter={(value: any) => [(Number(value) / 1000000).toFixed(1) + "FCFA"]}
                 />
                 <Bar dataKey="montant" fill="#10b981" radius={[8, 8, 0, 0]} />
               </BarChart>
@@ -435,10 +435,10 @@ const Reports = () => {
                       {agent.livraisons_en_cours}
                     </TableCell>
                     <TableCell>
-                      {(agent.montant_total / 1000000).toFixed(2)}M
+                      {(agent.montant_total / 1000).toFixed(2)}CFA
                     </TableCell>
                     <TableCell className="text-success">
-                      {(agent.montant_collecte / 1000000).toFixed(2)}M
+                      {(agent.montant_collecte / 1000).toFixed(2)}CFA
                     </TableCell>
                     <TableCell>
                       <span className="px-2 py-1 rounded-full bg-success/10 text-success text-sm font-medium">

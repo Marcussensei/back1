@@ -177,10 +177,10 @@ const AgentDetail = () => {
               <Progress value={(agent.note_moyenne || 0) * 20} className="h-2" />
             </div>
 
-            <Button className="w-full mt-6 gap-2">
+            {/* <Button className="w-full mt-6 gap-2">
               <Edit className="w-4 h-4" />
               Modifier le profil
-            </Button>
+            </Button> */}
           </CardContent>
         </Card>
 

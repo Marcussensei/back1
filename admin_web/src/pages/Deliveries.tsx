@@ -249,7 +249,7 @@ const Deliveries = () => {
         <div className="bg-card rounded-xl p-4 shadow-sm">
           <p className="text-sm text-muted-foreground">Montant total</p>
           <p className="text-2xl font-heading font-bold">
-            {(totalAmount / 1000).toFixed(0)}K
+            {(totalAmount).toFixed(0)}CFA
           </p>
         </div>
         <div className="bg-card rounded-xl p-4 shadow-sm">

@@ -51,7 +51,7 @@ export function Sidebar() {
           {!collapsed && (
             <div className="animate-fade-in">
               <h1 className="text-xl font-heading font-bold text-sidebar-foreground">
-                ESSIVI
+                ESSIVIVI
               </h1>
               <p className="text-xs text-sidebar-foreground/60">
                 Gestion des livraisons

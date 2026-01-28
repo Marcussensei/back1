@@ -210,10 +210,10 @@ const Clients = () => {
                       <Eye className="w-4 h-4 mr-2" />
                       Voir détails
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    {/* <DropdownMenuItem>
                       <Edit className="w-4 h-4 mr-2" />
                       Modifier
-                    </DropdownMenuItem>
+                    </DropdownMenuItem> */}
                     <DropdownMenuItem
                       className="text-red-600"
                       onClick={() => handleDeleteClient(client.id)}
